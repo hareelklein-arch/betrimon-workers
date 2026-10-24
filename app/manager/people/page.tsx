@@ -25,7 +25,7 @@ export default async function PeoplePage() {
         {users.map((user) => (
           <details key={user.id} className="card p-4">
             <summary className="cursor-pointer font-extrabold">
-              {user.name} · {user.phone} {user.active ? "" : "(לא פעיל)"}
+              {user.name} · {user.username} {user.active ? "" : "(לא פעיל)"}
             </summary>
             <div className="mt-3 grid gap-3">
               <WorkerForm worker={user} />

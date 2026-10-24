@@ -401,6 +401,7 @@ export function WorkerForm({
   worker?: {
     id: string;
     name: string;
+    username: string;
     phone: string;
     email: string | null;
     role: string;
@@ -432,6 +433,14 @@ export function WorkerForm({
       <label className="field">
         <span>שם</span>
         <input name="name" defaultValue={worker?.name} required />
+      </label>
+      <label className="field">
+        <span>שם משתמש</span>
+        <input name="username" autoComplete="off" defaultValue={worker?.username} required />
+      </label>
+      <label className="field">
+        <span>{worker ? "סיסמה חדשה (ריק = בלי שינוי)" : "סיסמה"}</span>
+        <input name="password" type="password" autoComplete="new-password" required={!worker} />
       </label>
       <label className="field">
         <span>טלפון</span>

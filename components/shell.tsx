@@ -3,6 +3,7 @@ import { logoutAction } from "@/lib/actions";
 import { unreadCount } from "@/lib/notifications";
 import { ROLE_LABELS } from "@/lib/format";
 import { PushToggle } from "@/components/push-toggle";
+import { SetupNudge } from "@/components/setup-nudge";
 
 type NavItem = { href: string; label: string };
 
@@ -43,6 +44,7 @@ export async function AppShell({
           </form>
         </div>
       </header>
+      <SetupNudge />
       <main>{children}</main>
       <div className="mt-6">
         <PushToggle />

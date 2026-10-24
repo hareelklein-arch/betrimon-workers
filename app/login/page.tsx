@@ -15,15 +15,14 @@ export default async function LoginPage() {
       <div className="card w-full p-6">
         <p className="text-sm text-[var(--muted)]">בית רימון</p>
         <h1 className="mb-2 text-3xl font-black">ניהול עובדים ושכר</h1>
-        <p className="mb-5 text-[var(--muted)]">
-          {demo ? "נכנסים עם מספר הטלפון. במצב פיתוח הקוד הוא 123456." : "נכנסים עם מספר הטלפון."}
-        </p>
+        <p className="mb-5 text-[var(--muted)]">נכנסים עם שם משתמש וסיסמה.</p>
         <LoginForm />
         {demo ? (
           <div className="mt-6 rounded-2xl bg-[#eef4ef] p-4 text-sm">
             <p className="font-bold">חשבונות דמו</p>
-            <p>מנהלת: 0500000001</p>
-            <p>עובדים: 0500000002 עד 0500000009</p>
+            <p>מנהלת: avigail / betrimon</p>
+            <p>עובדים: liam, noam, hadar, ariel, mika, ido, rotem, guy</p>
+            <p>סיסמה לכולם: betrimon</p>
           </div>
         ) : null}
       </div>

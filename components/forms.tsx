@@ -6,7 +6,7 @@ import {
   cancelShiftAction,
   createShiftAction,
   lockPeriodAction,
-  requestOtpAction,
+  loginAction,
   requestSwapAction,
   reviewTimeEntryAction,
   submitTimeEntryAction,
@@ -14,7 +14,6 @@ import {
   upsertNamedItemAction,
   upsertPayRateAction,
   upsertWorkerAction,
-  verifyOtpAction,
 } from "@/lib/actions";
 
 function ErrorText({ error }: { error?: string }) {
@@ -24,9 +23,6 @@ function ErrorText({ error }: { error?: string }) {
 
 export function LoginForm() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [step, setStep] = useState<"phone" | "code">("phone");
-  const [demoCode, setDemoCode] = useState<string>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
@@ -36,17 +32,7 @@ export function LoginForm() {
       action={(formData) => {
         start(async () => {
           setError("");
-          if (step === "phone") {
-            const result = await requestOtpAction(formData);
-            if (!result.ok) {
-              setError(result.error);
-              return;
-            }
-            setDemoCode(result.demoCode);
-            setStep("code");
-            return;
-          }
-          const result = await verifyOtpAction(formData);
+          const result = await loginAction(formData);
           if (!result.ok) {
             setError(result.error);
             return;
@@ -57,27 +43,16 @@ export function LoginForm() {
       }}
     >
       <label className="field">
-        <span>טלפון</span>
-        <input
-          name="phone"
-          inputMode="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          placeholder="0500000001"
-          required
-        />
+        <span>שם משתמש</span>
+        <input name="username" autoComplete="username" required />
       </label>
-      {step === "code" ? (
-        <label className="field">
-          <span>קוד בן 6 ספרות</span>
-          <input name="code" inputMode="numeric" autoComplete="one-time-code" required />
-        </label>
-      ) : null}
-      {demoCode ? <p className="text-sm text-[var(--muted)]">קוד לפיתוח: {demoCode}</p> : null}
+      <label className="field">
+        <span>סיסמה</span>
+        <input name="password" type="password" autoComplete="current-password" required />
+      </label>
       <ErrorText error={error} />
       <button className="btn" disabled={pending}>
-        {step === "phone" ? "שליחת קוד" : "כניסה"}
+        כניסה
       </button>
     </form>
   );

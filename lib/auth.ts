@@ -1,9 +1,8 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
-import { normalizePhone } from "@/lib/format";
+import { normalizeUsername, verifyPassword } from "@/lib/password";
 
 export type SessionUser = {
   id: string;
@@ -13,7 +12,6 @@ export type SessionUser = {
 };
 
 export function demoAuthEnabled() {
-  if (process.env.ALLOW_DEMO_OTP === "true") return true;
   return process.env.NODE_ENV !== "production";
 }
 
@@ -38,17 +36,6 @@ function sessionOptions(): SessionOptions {
       sameSite: "lax",
     },
   };
-}
-
-function hashCode(code: string) {
-  return createHash("sha256").update(code).digest("hex");
-}
-
-function codesMatch(a: string, b: string) {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
 }
 
 export async function getSession() {
@@ -91,60 +78,16 @@ export async function requireWorker() {
   return user;
 }
 
-export async function sendOtp(phoneInput: string) {
-  const phone = normalizePhone(phoneInput);
-  const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user || !user.active) {
-    return { ok: false as const, error: "לא נמצא עובד עם מספר הטלפון הזה." };
+export async function loginWithPassword(usernameInput: string, password: string) {
+  const username = normalizeUsername(usernameInput);
+  const user = username ? await prisma.user.findUnique({ where: { username } }) : null;
+  const invalid = { ok: false as const, error: "שם משתמש או סיסמה שגויים." };
+
+  if (!user || !user.active || !user.passwordHash) {
+    return invalid;
   }
-
-  if (!demoAuthEnabled()) {
-    return {
-      ok: false as const,
-      error: "שליחת קוד ב-SMS עדיין לא מוגדרת. לבדיקה פרטית ב-Vercel הגדירו ALLOW_DEMO_OTP=true ו-DEMO_OTP.",
-    };
-  }
-
-  const code = process.env.DEMO_OTP || "123456";
-
-  await prisma.otpCode.create({
-    data: {
-      phone,
-      codeHash: hashCode(code),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    },
-  });
-
-  return {
-    ok: true as const,
-    demoCode: code,
-  };
-}
-
-export async function verifyOtp(phoneInput: string, code: string) {
-  const phone = normalizePhone(phoneInput);
-  const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user || !user.active) {
-    return { ok: false as const, error: "לא נמצא עובד עם מספר הטלפון הזה." };
-  }
-
-  const otp = await prisma.otpCode.findFirst({
-    where: {
-      phone,
-      consumed: false,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otp || !codesMatch(otp.codeHash, hashCode(code.trim()))) {
-    return { ok: false as const, error: "הקוד שגוי או שפג תוקפו." };
-  }
-
-  await prisma.otpCode.update({
-    where: { id: otp.id },
-    data: { consumed: true },
-  });
+  const matches = await verifyPassword(password, user.passwordHash);
+  if (!matches) return invalid;
 
   const session = await getSession();
   session.user = {

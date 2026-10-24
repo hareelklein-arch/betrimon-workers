@@ -5,6 +5,8 @@
 create table if not exists public.users (
   id text primary key,
   name text not null,
+  username text not null unique,
+  password_hash text not null,
   phone text not null unique,
   email text unique,
   role text not null check (role in ('worker', 'manager')),

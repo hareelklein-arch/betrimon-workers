@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String   @unique
-  email     String?  @unique
-  role      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  phone        String   @unique
+  email        String?  @unique
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   profile           WorkerProfile?
   assignedShifts    Shift[]            @relation("ShiftWorker")

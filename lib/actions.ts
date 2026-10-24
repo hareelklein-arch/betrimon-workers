@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, logout, requireManager, requireUser, sendOtp, verifyOtp } from "@/lib/auth";
+import { getCurrentUser, loginWithPassword, logout, requireManager, requireUser } from "@/lib/auth";
+import { hashPassword, validatePassword, validateUsername } from "@/lib/password";
 import { writeAudit } from "@/lib/audit";
 import { notifyUsers } from "@/lib/notifications";
 import { assertPeriodOpen } from "@/lib/period";
@@ -30,12 +31,8 @@ function revalidateApp() {
   revalidatePath("/", "layout");
 }
 
-export async function requestOtpAction(formData: FormData) {
-  return sendOtp(formString(formData, "phone"));
-}
-
-export async function verifyOtpAction(formData: FormData) {
-  return verifyOtp(formString(formData, "phone"), formString(formData, "code"));
+export async function loginAction(formData: FormData) {
+  return loginWithPassword(formString(formData, "username"), formString(formData, "password"));
 }
 
 export async function logoutAction() {
@@ -503,7 +500,9 @@ export async function upsertWorkerAction(formData: FormData) {
   const manager = await requireManager();
   const id = formString(formData, "id");
   const name = formString(formData, "name");
+  const usernameResult = validateUsername(formString(formData, "username"));
   const phone = normalizePhone(formString(formData, "phone"));
+  const password = formString(formData, "password");
   const email = formString(formData, "email") || null;
   const role = formString(formData, "role") === "manager" ? "manager" : "worker";
   const active = formData.get("active") === "true";
@@ -518,11 +517,37 @@ export async function upsertWorkerAction(formData: FormData) {
   if (!name || !phone) {
     return { ok: false as const, error: "שם וטלפון הם חובה." };
   }
+  if (!usernameResult.ok) {
+    return { ok: false as const, error: usernameResult.error };
+  }
+  if (!id && !password) {
+    return { ok: false as const, error: "צריך לבחור סיסמה לחשבון חדש." };
+  }
+  if (password) {
+    const passwordResult = validatePassword(password);
+    if (!passwordResult.ok) return { ok: false as const, error: passwordResult.error };
+  }
 
-  const data = { name, phone, email, role, active };
+  const taken = await prisma.user.findFirst({
+    where: { username: usernameResult.username, ...(id ? { id: { not: id } } : {}) },
+    select: { id: true },
+  });
+  if (taken) {
+    return { ok: false as const, error: "שם המשתמש כבר תפוס." };
+  }
+
+  const data = {
+    name,
+    username: usernameResult.username,
+    phone,
+    email,
+    role,
+    active,
+    ...(password ? { passwordHash: await hashPassword(password) } : {}),
+  };
   const user = id
     ? await prisma.user.update({ where: { id }, data })
-    : await prisma.user.create({ data });
+    : await prisma.user.create({ data: { ...data, passwordHash: data.passwordHash as string } });
 
   if (role === "worker") {
     await prisma.workerProfile.upsert({
