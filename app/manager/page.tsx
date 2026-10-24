@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireManager } from "@/lib/auth";
 import { MonthBoard } from "@/components/month-board";
 import { PageTitle } from "@/components/shell";
+import { errorText, isNextControlFlow } from "@/lib/errors";
 import { endOfMonth, startOfMonth } from "@/lib/format";
 import { dateKey, shiftDay, uniqueAssignments } from "@/lib/shift";
 
@@ -20,7 +21,12 @@ export default async function ManagerSchedulePage({
   const to = endOfMonth(year, month);
   to.setDate(to.getDate() + 1);
 
-  const [shifts, sites, jobs, workers] = await Promise.all([
+  let shifts;
+  let sites;
+  let jobs;
+  let workers;
+  try {
+  const loaded = await Promise.all([
     prisma.shift.findMany({
       where: {
         status: { not: "cancelled" },
@@ -36,6 +42,19 @@ export default async function ManagerSchedulePage({
       select: { id: true, name: true },
     }),
   ]);
+  shifts = loaded[0];
+  sites = loaded[1];
+  jobs = loaded[2];
+  workers = loaded[3];
+  } catch (error) {
+    if (isNextControlFlow(error)) throw error;
+    return (
+      <div className="card p-6">
+        <h2 className="text-xl font-black">לא הצלחנו לטעון את לוח השיבוץ</h2>
+        <p className="mt-3 whitespace-pre-wrap text-sm">{errorText(error)}</p>
+      </div>
+    );
+  }
 
   const boardShifts = uniqueAssignments(shifts)
     .filter((shift) => {

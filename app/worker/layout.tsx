@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
+import { errorText, isNextControlFlow } from "@/lib/errors";
 
 const nav = [
   { href: "/worker", label: "שלי" },
@@ -10,21 +11,33 @@ const nav = [
 ];
 
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
-  if (user.role === "manager") {
+  try {
+    const user = await requireUser();
+    if (user.role === "manager") {
+      return (
+        <AppShell
+          user={user}
+          nav={[
+            { href: "/manager", label: "לוח" },
+            { href: "/worker", label: "מבט עובד" },
+            ...nav.slice(1),
+          ]}
+        >
+          {children}
+        </AppShell>
+      );
+    }
+
+    return <AppShell user={user} nav={nav}>{children}</AppShell>;
+  } catch (error) {
+    if (isNextControlFlow(error)) throw error;
     return (
-      <AppShell
-        user={user}
-        nav={[
-          { href: "/manager", label: "לוח" },
-          { href: "/worker", label: "מבט עובד" },
-          ...nav.slice(1),
-        ]}
-      >
-        {children}
-      </AppShell>
+      <div className="mx-auto max-w-lg p-4">
+        <div className="card p-6">
+          <h1 className="text-2xl font-black">שגיאה אחרי הכניסה</h1>
+          <p className="mt-3 whitespace-pre-wrap text-sm">{errorText(error)}</p>
+        </div>
+      </div>
     );
   }
-
-  return <AppShell user={user} nav={nav}>{children}</AppShell>;
 }

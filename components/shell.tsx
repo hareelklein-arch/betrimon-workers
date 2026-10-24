@@ -16,7 +16,12 @@ export async function AppShell({
   nav: NavItem[];
   children: React.ReactNode;
 }) {
-  const unread = await unreadCount(user.id);
+  let unread = 0;
+  try {
+    unread = await unreadCount(user.id);
+  } catch (error) {
+    console.error("unreadCount", error);
+  }
   const home = user.role === "manager" ? "/manager" : "/worker";
   const notificationsHref = user.role === "manager" ? "/manager/notifications" : "/worker/notifications";
 
