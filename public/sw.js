@@ -1,5 +1,5 @@
 self.addEventListener("push", (event) => {
-  let data = { title: "בית רימון", body: "יש עדכון חדש" };
+  let data = { title: "בית רימון", body: "יש עדכון חדש", url: "/" };
   try {
     data = event.data ? event.data.json() : data;
   } catch {
@@ -11,11 +11,13 @@ self.addEventListener("push", (event) => {
       lang: "he",
       dir: "rtl",
       icon: "/icon.svg",
+      data: { url: data.url || "/" },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow("/"));
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(clients.openWindow(url));
 });

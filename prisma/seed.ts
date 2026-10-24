@@ -2,13 +2,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-function at(daysFromToday: number, hour: number, minute = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromToday);
-  date.setHours(hour, minute, 0, 0);
-  return date;
-}
-
 async function main() {
   await prisma.dateChatMessage.deleteMany();
   await prisma.notification.deleteMany();
@@ -25,63 +18,44 @@ async function main() {
   await prisma.site.deleteMany();
   await prisma.user.deleteMany();
 
-  const manager = await prisma.user.create({
+  await prisma.user.create({
     data: {
-      name: "רועי כהן",
+      name: "אביגיל שקד",
       phone: "0500000001",
       email: "manager@betrimon.local",
       role: "manager",
     },
   });
 
-  const noa = await prisma.user.create({
-    data: {
-      name: "נועה לוי",
-      phone: "0500000002",
-      role: "worker",
-      profile: {
-        create: {
-          birthDate: new Date("2009-04-12"),
-          parentPhone: "0520000002",
-          paymentMethod: "bit",
-          bankDetails: "ביט: 050-000-0002",
+  const workers = [
+    { name: "ליאם פרידמן", phone: "0500000002", birthDate: "2009-03-08", parentPhone: "0520000002", paymentMethod: "bit" },
+    { name: "נועם אזולאי", phone: "0500000003", birthDate: "2008-08-19", parentPhone: "0520000003", paymentMethod: "bank" },
+    { name: "הדר ממן", phone: "0500000004", birthDate: "2010-01-14", parentPhone: "0520000004", paymentMethod: "bit" },
+    { name: "אריאל בן-דוד", phone: "0500000005", birthDate: "2009-06-02", parentPhone: "0520000005", paymentMethod: "bit" },
+    { name: "מיקה רוזן", phone: "0500000006", birthDate: "2008-12-27", parentPhone: "0520000006", paymentMethod: "bank" },
+    { name: "עידו שמעוני", phone: "0500000007", birthDate: "2010-04-11", parentPhone: "0520000007", paymentMethod: "bit" },
+    { name: "רותם אלקיים", phone: "0500000008", birthDate: "2009-10-05", parentPhone: "0520000008", paymentMethod: "bit" },
+    { name: "גיא סבג", phone: "0500000009", birthDate: "2008-07-23", parentPhone: "0520000009", paymentMethod: "bank" },
+  ];
+
+  for (const worker of workers) {
+    await prisma.user.create({
+      data: {
+        name: worker.name,
+        phone: worker.phone,
+        role: "worker",
+        profile: {
+          create: {
+            birthDate: new Date(worker.birthDate),
+            parentPhone: worker.parentPhone,
+            paymentMethod: worker.paymentMethod,
+          },
         },
       },
-    },
-  });
+    });
+  }
 
-  const yonatan = await prisma.user.create({
-    data: {
-      name: "יונתן מזרחי",
-      phone: "0500000003",
-      role: "worker",
-      profile: {
-        create: {
-          birthDate: new Date("2008-11-03"),
-          parentPhone: "0520000003",
-          paymentMethod: "bank",
-          bankDetails: "בנק הדואר 9 / 123456",
-        },
-      },
-    },
-  });
-
-  const maya = await prisma.user.create({
-    data: {
-      name: "מאיה אברהם",
-      phone: "0500000004",
-      role: "worker",
-      profile: {
-        create: {
-          birthDate: new Date("2010-07-21"),
-          parentPhone: "0520000004",
-          paymentMethod: "bit",
-        },
-      },
-    },
-  });
-
-  const [field, hall, garden] = await Promise.all([
+  await Promise.all([
     prisma.site.create({ data: { name: "מגרש הספורט" } }),
     prisma.site.create({ data: { name: "אולם התרבות" } }),
     prisma.site.create({ data: { name: "גן השעשועים" } }),
@@ -104,154 +78,9 @@ async function main() {
     ],
   });
 
-  const shiftPastNoa = await prisma.shift.create({
-    data: {
-      userId: noa.id,
-      siteId: field.id,
-      jobTypeId: guard.id,
-      workDate: at(-3, 0),
-      startsAt: at(-3, 16),
-      endsAt: at(-3, 19),
-      createdById: manager.id,
-    },
-  });
-
-  const shiftPastYonatan = await prisma.shift.create({
-    data: {
-      userId: yonatan.id,
-      siteId: hall.id,
-      jobTypeId: clean.id,
-      workDate: at(-2, 0),
-      startsAt: at(-2, 9),
-      endsAt: at(-2, 12),
-      createdById: manager.id,
-    },
-  });
-
-  await prisma.shift.create({
-    data: {
-      userId: maya.id,
-      siteId: garden.id,
-      jobTypeId: eventHelp.id,
-      workDate: at(1, 0),
-      startsAt: at(1, 17),
-      endsAt: at(1, 20),
-      createdById: manager.id,
-    },
-  });
-
-  const swapShift = await prisma.shift.create({
-    data: {
-      userId: yonatan.id,
-      siteId: field.id,
-      jobTypeId: guard.id,
-      workDate: at(2, 0),
-      startsAt: at(2, 16),
-      endsAt: at(2, 20),
-      createdById: manager.id,
-    },
-  });
-
-  await prisma.shift.create({
-    data: {
-      userId: noa.id,
-      siteId: hall.id,
-      jobTypeId: eventHelp.id,
-      workDate: at(3, 0),
-      startsAt: at(3, 18),
-      endsAt: at(3, 21),
-      createdById: manager.id,
-    },
-  });
-
-  await prisma.shift.create({
-    data: {
-      userId: noa.id,
-      siteId: field.id,
-      jobTypeId: guard.id,
-      workDate: at(4, 0),
-      createdById: manager.id,
-      notes: "שעות בתיאום בצ'אט",
-    },
-  });
-
-  await prisma.shift.create({
-    data: {
-      userId: maya.id,
-      siteId: field.id,
-      jobTypeId: guard.id,
-      workDate: at(4, 0),
-      createdById: manager.id,
-      notes: "שעות בתיאום בצ'אט",
-    },
-  });
-
-  await prisma.timeEntry.create({
-    data: {
-      userId: noa.id,
-      shiftId: shiftPastNoa.id,
-      siteId: field.id,
-      jobTypeId: guard.id,
-      workDate: at(-3, 16),
-      hours: 3,
-      hourlyRate: 28,
-      status: "approved",
-      reviewedById: manager.id,
-      reviewedAt: new Date(),
-      note: "שמירה במשחק כדורגל",
-    },
-  });
-
-  await prisma.timeEntry.create({
-    data: {
-      userId: yonatan.id,
-      shiftId: shiftPastYonatan.id,
-      siteId: hall.id,
-      jobTypeId: clean.id,
-      workDate: at(-2, 9),
-      hours: 3,
-      hourlyRate: 24,
-      status: "submitted",
-      note: "ניקיון אחרי חוג",
-    },
-  });
-
-  await prisma.timeEntry.create({
-    data: {
-      userId: maya.id,
-      siteId: garden.id,
-      jobTypeId: eventHelp.id,
-      workDate: at(-8, 10),
-      hours: 2.5,
-      hourlyRate: 22,
-      status: "approved",
-      reviewedById: manager.id,
-      reviewedAt: new Date(),
-    },
-  });
-
-  await prisma.swapRequest.create({
-    data: {
-      shiftId: swapShift.id,
-      requesterId: yonatan.id,
-      status: "open",
-      expiresAt: new Date(swapShift.startsAt.getTime() - 6 * 36e5),
-    },
-  });
-
-  const workers = await prisma.user.findMany({ where: { role: "worker", id: { not: yonatan.id } } });
-  await prisma.notification.createMany({
-    data: workers.map((worker) => ({
-      userId: worker.id,
-      type: "swap_requested",
-      title: "בקשת החלפה",
-      body: "יונתן מזרחי מבקש החלפה: שמירה במגרש הספורט",
-    })),
-  });
-
-  console.log("נתוני דמו מוכנים.");
-  console.log("מנהל: 0500000001");
-  console.log("עובדים: 0500000002 / 0500000003 / 0500000004");
+  console.log("משתמשים חדשים מוכנים.");
+  console.log("מנהלת: אביגיל שקד  0500000001");
+  console.log("עובדים: 0500000002 עד 0500000009");
   console.log("קוד OTP במצב פיתוח: 123456");
 }
 

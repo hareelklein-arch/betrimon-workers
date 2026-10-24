@@ -84,19 +84,24 @@ export function LoginForm() {
 }
 
 export function TimeEntryForm({
-  sites,
-  jobs,
-  shifts,
+  shift,
 }: {
-  sites: { id: string; name: string }[];
-  jobs: { id: string; name: string }[];
-  shifts: { id: string; label: string; siteId: string; jobTypeId: string; workDate: string; startTime?: string; endTime?: string }[];
+  shift: {
+    id: string;
+    label: string;
+    siteId: string;
+    siteName: string;
+    jobTypeId: string;
+    jobName: string;
+    workDate: string;
+    dateLabel: string;
+    startTime?: string;
+    endTime?: string;
+  };
 }) {
+  const router = useRouter();
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [pending, start] = useTransition();
-  const [shiftId, setShiftId] = useState("");
-  const selected = shifts.find((shift) => shift.id === shiftId);
 
   return (
     <form
@@ -104,53 +109,53 @@ export function TimeEntryForm({
       action={(formData) => {
         start(async () => {
           const result = await submitTimeEntryAction(formData);
-          setError(result.ok ? "" : result.error);
-          setSuccess(result.ok ? "הדיווח נשלח לאישור המנהל." : "");
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          router.replace("/worker");
+          router.refresh();
         });
       }}
     >
-      <label className="field">
-        <span>משמרת משובצת (לא חובה)</span>
-        <select name="shiftId" value={shiftId} onChange={(event) => setShiftId(event.target.value)}>
-          <option value="">דיווח חופשי</option>
-          {shifts.map((shift) => (
-            <option key={shift.id} value={shift.id}>
-              {shift.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>תאריך</span>
-        <input type="date" name="workDate" defaultValue={selected?.workDate} required />
-      </label>
-      <label className="field">
-        <span>איפה</span>
-        <select name="siteId" defaultValue={selected?.siteId} key={selected?.siteId} required>
-          {sites.map((site) => (
-            <option key={site.id} value={site.id}>
-              {site.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>מה העבודה</span>
-        <select name="jobTypeId" defaultValue={selected?.jobTypeId} key={selected?.jobTypeId} required>
-          {jobs.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <input type="hidden" name="shiftId" value={shift.id} />
+      <input type="hidden" name="siteId" value={shift.siteId} />
+      <input type="hidden" name="jobTypeId" value={shift.jobTypeId} />
+      <input type="hidden" name="workDate" value={shift.workDate} />
+      <div className="rounded-2xl bg-[#eef4ef] p-3 text-sm">
+        <p className="font-extrabold">{shift.jobName}</p>
+        <p>{shift.siteName}</p>
+        <p className="text-[var(--muted)]">{shift.dateLabel}</p>
+      </div>
       <label className="field">
         <span>שעת התחלה</span>
-        <input type="time" name="startTime" defaultValue={selected?.startTime} key={`start-${selected?.id || "free"}`} required />
+        <input
+          type="text"
+          name="startTime"
+          defaultValue={shift.startTime}
+          required
+          dir="ltr"
+          inputMode="numeric"
+          placeholder="23:00"
+          pattern="^([01]?\d|2[0-3]):[0-5]\d$"
+          title="שעה בפורמט 24, למשל 23:00"
+          autoComplete="off"
+        />
       </label>
       <label className="field">
         <span>שעת סיום</span>
-        <input type="time" name="endTime" defaultValue={selected?.endTime} key={`end-${selected?.id || "free"}`} required />
+        <input
+          type="text"
+          name="endTime"
+          defaultValue={shift.endTime}
+          required
+          dir="ltr"
+          inputMode="numeric"
+          placeholder="23:00"
+          pattern="^([01]?\d|2[0-3]):[0-5]\d$"
+          title="שעה בפורמט 24, למשל 23:00"
+          autoComplete="off"
+        />
       </label>
       <p className="text-sm text-[var(--muted)]">חובה למלא התחלה וסיום. מספר השעות מחושב מהן אוטומטית.</p>
       <label className="field">
@@ -158,7 +163,6 @@ export function TimeEntryForm({
         <textarea name="note" rows={3} />
       </label>
       <ErrorText error={error} />
-      {success ? <p className="text-sm font-bold text-[var(--ok)]">{success}</p> : null}
       <button className="btn" disabled={pending}>
         שליחת דיווח לאישור
       </button>

@@ -4,7 +4,6 @@ import { AppShell } from "@/components/shell";
 const nav = [
   { href: "/manager", label: "שיבוץ" },
   { href: "/manager/approvals", label: "אישורים" },
-  { href: "/manager/swaps", label: "החלפות" },
   { href: "/manager/payroll", label: "שכר" },
   { href: "/manager/people", label: "ניהול" },
 ];

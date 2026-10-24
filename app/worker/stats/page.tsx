@@ -12,7 +12,7 @@ export default async function StatsPage() {
       <PageTitle title="כמה הרווחתי" subtitle="רק שעות שהמנהל אישר נכנסות לכאן. בלי מס ולפני נטו." />
       <p className="mb-4">
         <a className="font-bold text-[var(--primary)]" href="/worker/history">
-          להיסטוריית העבודות
+          לעבודות שסיימתי
         </a>
       </p>
       <div className="mb-4 grid grid-cols-2 gap-3">

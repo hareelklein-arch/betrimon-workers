@@ -25,7 +25,7 @@ export default async function WorkerSwapsPage() {
 
   return (
     <>
-      <PageTitle title="החלפות" subtitle="כשאתם מבקשים — כולם מקבלים התראה. כשמישהו לוקח — רק אתם מקבלים הודעה מי אישר." />
+      <PageTitle title="החלפות" subtitle="עובד אחר לוקח את המשמרת. אין צורך באישור מנהל." />
 
       <h3 className="mb-2 text-lg font-extrabold">בקשות פתוחות של אחרים</h3>
       {open.length === 0 ? (
@@ -57,7 +57,7 @@ export default async function WorkerSwapsPage() {
                 <StatusBadge status={request.status} />
               </div>
               <p className="text-sm text-[var(--muted)]">{formatShiftWhen(request.shift)}</p>
-              {request.taker ? <p className="mt-2">אישר/ה: {request.taker.name}</p> : null}
+              {request.taker ? <p className="mt-2">לקח/ה: {request.taker.name}</p> : null}
             </article>
           ))}
         </div>

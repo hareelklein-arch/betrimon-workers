@@ -3,16 +3,14 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { EmptyState, PageTitle } from "@/components/shell";
 import { formatDate } from "@/lib/format";
+import { dateWorkIsFinished } from "@/lib/chat";
 import { parseDateKey, shiftDateKey, shiftDay } from "@/lib/shift";
 
 export default async function ChatListPage() {
   const user = await requireUser();
   const shifts = await prisma.shift.findMany({
-    where: {
-      status: { not: "cancelled" },
-      ...(user.role === "manager" ? {} : { userId: user.id }),
-    },
-    include: { user: true, site: true },
+    where: { status: { not: "cancelled" } },
+    include: { user: true, site: true, timeEntries: { select: { status: true } } },
     orderBy: [{ workDate: "asc" }, { startsAt: "asc" }],
   });
 
@@ -20,14 +18,25 @@ export default async function ChatListPage() {
     shifts.filter((shift) => user.role === "manager" || shift.userId === user.id).map((shift) => shiftDateKey(shift)),
   );
 
-  const grouped = new Map<string, { names: Set<string>; sites: Set<string> }>();
+  const grouped = new Map<string, { names: Set<string>; sites: Set<string>; shifts: typeof shifts }>();
   for (const shift of shifts) {
     const key = shiftDateKey(shift);
     if (!myKeys.has(key)) continue;
-    const row = grouped.get(key) ?? { names: new Set<string>(), sites: new Set<string>() };
+    const row = grouped.get(key) ?? { names: new Set<string>(), sites: new Set<string>(), shifts: [] };
     row.names.add(shift.user.name);
     row.sites.add(shift.site.name);
+    row.shifts.push(shift);
     grouped.set(key, row);
+  }
+  const finishedKeys: string[] = [];
+  for (const [key, row] of grouped) {
+    if (dateWorkIsFinished(row.shifts)) {
+      grouped.delete(key);
+      finishedKeys.push(key);
+    }
+  }
+  if (finishedKeys.length > 0) {
+    await prisma.dateChatMessage.deleteMany({ where: { workDateKey: { in: finishedKeys } } });
   }
 
   const keys = [...grouped.keys()].sort();

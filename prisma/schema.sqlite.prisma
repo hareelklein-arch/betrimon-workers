@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  email     String?  @unique
+  role      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile           WorkerProfile?
+  assignedShifts    Shift[]            @relation("ShiftWorker")
+  createdShifts     Shift[]            @relation("ShiftCreatedBy")
+  timeEntries       TimeEntry[]        @relation("TimeEntryWorker")
+  reviewedEntries   TimeEntry[]        @relation("TimeEntryReviewer")
+  swapRequests      SwapRequest[]      @relation("SwapRequester")
+  takenSwaps        SwapRequest[]      @relation("SwapTaker")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  lockedPeriods     PayrollPeriod[]
+  pushSubscriptions PushSubscription[]
+  personalRates     PayRate[]
+  chatMessages      DateChatMessage[]
+}
+
+model WorkerProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  birthDate     DateTime?
+  parentPhone   String?
+  paymentMethod String?
+  bankDetails   String?
+  personalRate  Float?
+}
+
+model Site {
+  id          String      @id @default(cuid())
+  name        String
+  active      Boolean     @default(true)
+  shifts      Shift[]
+  timeEntries TimeEntry[]
+}
+
+model JobType {
+  id          String      @id @default(cuid())
+  name        String
+  active      Boolean     @default(true)
+  shifts      Shift[]
+  timeEntries TimeEntry[]
+  payRates    PayRate[]
+}
+
+model PayRate {
+  id         String   @id @default(cuid())
+  jobTypeId  String?
+  jobType    JobType? @relation(fields: [jobTypeId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  minAge     Int?
+  maxAge     Int?
+  hourlyRate Float
+  active     Boolean  @default(true)
+}
+
+model Shift {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation("ShiftWorker", fields: [userId], references: [id])
+  siteId       String
+  site         Site          @relation(fields: [siteId], references: [id])
+  jobTypeId    String
+  jobType      JobType       @relation(fields: [jobTypeId], references: [id])
+  workDate     DateTime?
+  startsAt     DateTime?
+  endsAt       DateTime?
+  notes        String?
+  trainee      Boolean       @default(false)
+  status       String        @default("scheduled")
+  createdById  String
+  createdBy    User          @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  swapRequests SwapRequest[]
+  timeEntries  TimeEntry[]
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation("TimeEntryWorker", fields: [userId], references: [id])
+  shiftId         String?
+  shift           Shift?    @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  siteId          String
+  site            Site      @relation(fields: [siteId], references: [id])
+  jobTypeId       String
+  jobType         JobType   @relation(fields: [jobTypeId], references: [id])
+  workDate        DateTime
+  startsAt        DateTime?
+  endsAt          DateTime?
+  hours           Float
+  hourlyRate      Float
+  note            String?
+  status          String    @default("submitted")
+  reviewedById    String?
+  reviewedBy      User?     @relation("TimeEntryReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model SwapRequest {
+  id          String   @id @default(cuid())
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  requesterId String
+  requester   User     @relation("SwapRequester", fields: [requesterId], references: [id])
+  takerId     String?
+  taker       User?    @relation("SwapTaker", fields: [takerId], references: [id])
+  status      String   @default("open")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  meta      String?
+}
+
+model PayrollPeriod {
+  id         String    @id @default(cuid())
+  year       Int
+  month      Int
+  lockedAt   DateTime?
+  lockedById String?
+  lockedBy   User?     @relation(fields: [lockedById], references: [id])
+
+  @@unique([year, month])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  before    String?
+  after     String?
+  createdAt DateTime @default(now())
+}
+
+model DateChatMessage {
+  id          String   @id @default(cuid())
+  workDateKey String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body        String
+  createdAt   DateTime @default(now())
+
+  @@index([workDateKey, createdAt])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint String @unique
+  p256dh   String
+  auth     String
+}

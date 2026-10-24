@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessDateChat } from "@/lib/actions";
 import { ChatForm, ChatRefresh } from "@/components/chat-form";
 import { EmptyState, PageTitle } from "@/components/shell";
+import { dateWorkIsFinished } from "@/lib/chat";
 import { formatDate, formatTime } from "@/lib/format";
 import { parseDateKey, shiftDateKey, formatShiftWhen } from "@/lib/shift";
 
@@ -16,15 +17,21 @@ export default async function DateChatPage({ params }: { params: Promise<{ date:
 
   const allShifts = await prisma.shift.findMany({
     where: { status: { not: "cancelled" } },
-    include: { user: true, site: true, jobType: true },
+    include: { user: true, site: true, jobType: true, timeEntries: { select: { status: true } } },
     orderBy: { startsAt: "asc" },
   });
   const onDate = allShifts.filter((shift) => shiftDateKey(shift) === date);
-  const messages = await prisma.dateChatMessage.findMany({
-    where: { workDateKey: date },
-    include: { user: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const finished = dateWorkIsFinished(onDate);
+  if (finished) {
+    await prisma.dateChatMessage.deleteMany({ where: { workDateKey: date } });
+  }
+  const messages = finished
+    ? []
+    : await prisma.dateChatMessage.findMany({
+        where: { workDateKey: date },
+        include: { user: true },
+        orderBy: { createdAt: "asc" },
+      });
 
   return (
     <>
@@ -48,7 +55,9 @@ export default async function DateChatPage({ params }: { params: Promise<{ date:
           </ul>
         )}
       </div>
-      {messages.length === 0 ? (
+      {finished ? (
+        <EmptyState text="העבודה הסתיימה והצ'אט נמחק." />
+      ) : messages.length === 0 ? (
         <EmptyState text="אין הודעות עדיין. כתבו מתי אתם יכולים לעבוד." />
       ) : (
         <div className="grid gap-2">
@@ -66,7 +75,7 @@ export default async function DateChatPage({ params }: { params: Promise<{ date:
           ))}
         </div>
       )}
-      <ChatForm workDateKey={date} />
+      {finished ? null : <ChatForm workDateKey={date} />}
     </>
   );
 }

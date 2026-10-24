@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,182 +15,210 @@ model User {
   email     String?  @unique
   role      String
   active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  profile              WorkerProfile?
-  assignedShifts       Shift[]            @relation("ShiftWorker")
-  createdShifts        Shift[]            @relation("ShiftCreatedBy")
-  timeEntries          TimeEntry[]        @relation("TimeEntryWorker")
-  reviewedEntries      TimeEntry[]        @relation("TimeEntryReviewer")
-  swapRequests         SwapRequest[]      @relation("SwapRequester")
-  takenSwaps           SwapRequest[]      @relation("SwapTaker")
-  notifications        Notification[]
-  auditLogs            AuditLog[]
-  lockedPeriods        PayrollPeriod[]
-  pushSubscriptions    PushSubscription[]
-  personalRates        PayRate[]
-  chatMessages         DateChatMessage[]
+  profile           WorkerProfile?
+  assignedShifts    Shift[]            @relation("ShiftWorker")
+  createdShifts     Shift[]            @relation("ShiftCreatedBy")
+  timeEntries       TimeEntry[]        @relation("TimeEntryWorker")
+  reviewedEntries   TimeEntry[]        @relation("TimeEntryReviewer")
+  swapRequests      SwapRequest[]      @relation("SwapRequester")
+  takenSwaps        SwapRequest[]      @relation("SwapTaker")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  lockedPeriods     PayrollPeriod[]
+  pushSubscriptions PushSubscription[]
+  personalRates     PayRate[]
+  chatMessages      DateChatMessage[]
+
+  @@map("users")
 }
 
 model WorkerProfile {
   id            String    @id @default(cuid())
-  userId        String    @unique
+  userId        String    @unique @map("user_id")
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  birthDate     DateTime?
-  parentPhone   String?
-  paymentMethod String?
-  bankDetails   String?
-  personalRate  Float?
+  birthDate     DateTime? @map("birth_date") @db.Date
+  parentPhone   String?   @map("parent_phone")
+  paymentMethod String?   @map("payment_method")
+  bankDetails   String?   @map("bank_details")
+  personalRate  Float?    @map("personal_rate")
+
+  @@map("worker_profiles")
 }
 
 model Site {
-  id          String       @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  active      Boolean      @default(true)
+  active      Boolean     @default(true)
   shifts      Shift[]
   timeEntries TimeEntry[]
+
+  @@map("sites")
 }
 
 model JobType {
-  id          String       @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  active      Boolean      @default(true)
+  active      Boolean     @default(true)
   shifts      Shift[]
   timeEntries TimeEntry[]
   payRates    PayRate[]
+
+  @@map("job_types")
 }
 
 model PayRate {
   id         String   @id @default(cuid())
-  jobTypeId  String?
+  jobTypeId  String?  @map("job_type_id")
   jobType    JobType? @relation(fields: [jobTypeId], references: [id], onDelete: SetNull)
-  userId     String?
+  userId     String?  @map("user_id")
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  minAge     Int?
-  maxAge     Int?
-  hourlyRate Float
+  minAge     Int?     @map("min_age")
+  maxAge     Int?     @map("max_age")
+  hourlyRate Float    @map("hourly_rate")
   active     Boolean  @default(true)
+
+  @@map("pay_rates")
 }
 
 model Shift {
-  id           String         @id @default(cuid())
-  userId       String
-  user         User           @relation("ShiftWorker", fields: [userId], references: [id])
-  siteId       String
-  site         Site           @relation(fields: [siteId], references: [id])
-  jobTypeId    String
-  jobType      JobType        @relation(fields: [jobTypeId], references: [id])
-  workDate     DateTime?
-  startsAt     DateTime?
-  endsAt       DateTime?
+  id           String        @id @default(cuid())
+  userId       String        @map("user_id")
+  user         User          @relation("ShiftWorker", fields: [userId], references: [id])
+  siteId       String        @map("site_id")
+  site         Site          @relation(fields: [siteId], references: [id])
+  jobTypeId    String        @map("job_type_id")
+  jobType      JobType       @relation(fields: [jobTypeId], references: [id])
+  workDate     DateTime?     @map("work_date") @db.Date
+  startsAt     DateTime?     @map("starts_at")
+  endsAt       DateTime?     @map("ends_at")
   notes        String?
-  status       String         @default("scheduled")
-  createdById  String
-  createdBy    User           @relation("ShiftCreatedBy", fields: [createdById], references: [id])
-  createdAt    DateTime       @default(now())
+  trainee      Boolean       @default(false)
+  status       String        @default("scheduled")
+  createdById  String        @map("created_by_id")
+  createdBy    User          @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now()) @map("created_at")
   swapRequests SwapRequest[]
   timeEntries  TimeEntry[]
+
+  @@map("shifts")
 }
 
 model TimeEntry {
-  id               String    @id @default(cuid())
-  userId           String
-  user             User      @relation("TimeEntryWorker", fields: [userId], references: [id])
-  shiftId          String?
-  shift            Shift?    @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  siteId           String
-  site             Site      @relation(fields: [siteId], references: [id])
-  jobTypeId        String
-  jobType          JobType   @relation(fields: [jobTypeId], references: [id])
-  workDate         DateTime
-  startsAt         DateTime?
-  endsAt           DateTime?
-  hours            Float
-  hourlyRate       Float
-  note             String?
-  status           String    @default("submitted")
-  reviewedById     String?
-  reviewedBy       User?     @relation("TimeEntryReviewer", fields: [reviewedById], references: [id])
-  reviewedAt       DateTime?
-  rejectionReason  String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  user            User      @relation("TimeEntryWorker", fields: [userId], references: [id])
+  shiftId         String?   @map("shift_id")
+  shift           Shift?    @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  siteId          String    @map("site_id")
+  site            Site      @relation(fields: [siteId], references: [id])
+  jobTypeId       String    @map("job_type_id")
+  jobType         JobType   @relation(fields: [jobTypeId], references: [id])
+  workDate        DateTime  @map("work_date") @db.Date
+  startsAt        DateTime? @map("starts_at")
+  endsAt          DateTime? @map("ends_at")
+  hours           Float
+  hourlyRate      Float     @map("hourly_rate")
+  note            String?
+  status          String    @default("submitted")
+  reviewedById    String?   @map("reviewed_by_id")
+  reviewedBy      User?     @relation("TimeEntryReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionReason String?   @map("rejection_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("time_entries")
 }
 
 model SwapRequest {
-  id          String    @id @default(cuid())
-  shiftId     String
-  shift       Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  requesterId String
-  requester   User      @relation("SwapRequester", fields: [requesterId], references: [id])
-  takerId     String?
-  taker       User?     @relation("SwapTaker", fields: [takerId], references: [id])
-  status      String    @default("open")
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
+  id          String   @id @default(cuid())
+  shiftId     String   @map("shift_id")
+  shift       Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  requesterId String   @map("requester_id")
+  requester   User     @relation("SwapRequester", fields: [requesterId], references: [id])
+  takerId     String?  @map("taker_id")
+  taker       User?    @relation("SwapTaker", fields: [takerId], references: [id])
+  status      String   @default("open")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("swap_requests")
 }
 
 model Notification {
   id        String    @id @default(cuid())
-  userId    String
+  userId    String    @map("user_id")
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   title     String
   body      String
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
   meta      String?
+
+  @@map("notifications")
 }
 
 model PayrollPeriod {
   id         String    @id @default(cuid())
   year       Int
   month      Int
-  lockedAt   DateTime?
-  lockedById String?
+  lockedAt   DateTime? @map("locked_at")
+  lockedById String?   @map("locked_by_id")
   lockedBy   User?     @relation(fields: [lockedById], references: [id])
 
   @@unique([year, month])
+  @@map("payroll_periods")
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
-  userId    String?
+  userId    String?  @map("user_id")
   user      User?    @relation(fields: [userId], references: [id])
   action    String
   entity    String
-  entityId  String
+  entityId  String   @map("entity_id")
   before    String?
   after     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_log")
 }
 
 model DateChatMessage {
   id          String   @id @default(cuid())
-  workDateKey String
-  userId      String
+  workDateKey String   @map("work_date_key")
+  userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   body        String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([workDateKey, createdAt])
+  @@map("date_chat_messages")
 }
 
 model OtpCode {
   id        String   @id @default(cuid())
   phone     String
-  codeHash  String
-  expiresAt DateTime
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
   consumed  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("otp_codes")
 }
 
 model PushSubscription {
-  id        String @id @default(cuid())
-  userId    String
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String @unique
-  p256dh    String
-  auth      String
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  @@map("push_subscriptions")
 }

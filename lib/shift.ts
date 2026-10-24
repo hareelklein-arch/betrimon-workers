@@ -1,4 +1,4 @@
-import { endOfDay, formatDate, formatDateTime, formatHours, formatTime, startOfDay, toDateInput } from "@/lib/format";
+import { endOfDay, formatDate, formatHours, formatTime, startOfDay, toDateInput } from "@/lib/format";
 import { hoursBetween } from "@/lib/payroll";
 
 export type Timed = {
@@ -39,9 +39,18 @@ export function hasShiftTimes(shift: Timed): shift is Timed & { startsAt: Date; 
 
 export function formatShiftWhen(shift: Timed) {
   if (hasShiftTimes(shift)) {
-    return `${formatDateTime(shift.startsAt)} – ${formatTime(shift.endsAt)}`;
+    return `${formatShiftDate(shift)} · ${formatShiftTimeRange(shift)}`;
   }
-  return `${formatDate(shiftDay(shift))} · שעות בתיאום בצ'אט`;
+  return `${formatShiftDate(shift)} · שעות בתיאום בצ'אט`;
+}
+
+export function formatShiftDate(shift: Timed) {
+  return formatDate(shiftDay(shift));
+}
+
+export function formatShiftTimeRange(shift: Timed) {
+  if (!hasShiftTimes(shift)) return "שעות בתיאום בצ'אט";
+  return `${formatTime(shift.startsAt)} עד ${formatTime(shift.endsAt)}`;
 }
 
 export function formatShiftHours(shift: Timed) {
@@ -62,4 +71,22 @@ export function swapExpiresAt(shift: Timed) {
 export function canRequestSwap(shift: Timed, now = new Date()) {
   const expires = swapExpiresAt(shift);
   return isFutureShift(shift, now) && expires > now;
+}
+
+export function assignmentKey(shift: Timed & { userId: string; jobTypeId: string; siteId: string }) {
+  return `${shift.userId}|${shift.jobTypeId}|${shift.siteId}|${shiftDateKey(shift)}`;
+}
+
+export function shiftWasReported(entries: { status: string }[]) {
+  return entries.some((entry) => entry.status === "submitted" || entry.status === "approved");
+}
+
+export function uniqueAssignments<T extends Timed & { userId: string; jobTypeId: string; siteId: string }>(shifts: T[]) {
+  const seen = new Set<string>();
+  return shifts.filter((shift) => {
+    const key = assignmentKey(shift);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

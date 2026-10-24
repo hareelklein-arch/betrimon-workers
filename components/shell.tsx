@@ -43,8 +43,10 @@ export async function AppShell({
           </form>
         </div>
       </header>
-      <PushToggle />
       <main>{children}</main>
+      <div className="mt-6">
+        <PushToggle />
+      </div>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--line)] bg-[var(--card)]/95 backdrop-blur">
         <div
           className="mx-auto grid max-w-5xl gap-1 px-2 py-2"
@@ -80,7 +82,7 @@ export function StatusBadge({ status }: { status: string }) {
     approved: ["אושר", "badge-ok"],
     rejected: ["נדחה", "badge-bad"],
     open: ["פתוח", "badge-wait"],
-    taken: ["אושר", "badge-ok"],
+    taken: ["נלקחה", "badge-ok"],
     expired: ["פג תוקף", "badge"],
     scheduled: ["משובץ", "badge-ok"],
     swapped: ["הוחלף", "badge-wait"],

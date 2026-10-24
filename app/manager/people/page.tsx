@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
 import { requireManager } from "@/lib/auth";
-import { NamedItemForm, RateForm, WorkerForm } from "@/components/manager-forms";
+import { DeleteRateButton, DeleteWorkerButton, NamedItemForm, RateForm, WorkerForm } from "@/components/manager-forms";
 import { PageTitle } from "@/components/shell";
 import { formatMoney } from "@/lib/format";
 
 export default async function PeoplePage() {
-  await requireManager();
+  const manager = await requireManager();
   const [users, sites, jobs, rates] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { name: "asc" } }),
     prisma.site.findMany({ orderBy: { name: "asc" } }),
@@ -27,8 +27,13 @@ export default async function PeoplePage() {
             <summary className="cursor-pointer font-extrabold">
               {user.name} · {user.phone} {user.active ? "" : "(לא פעיל)"}
             </summary>
-            <div className="mt-3">
+            <div className="mt-3 grid gap-3">
               <WorkerForm worker={user} />
+              {user.id === manager.id ? (
+                <p className="text-sm text-[var(--muted)]">אי אפשר למחוק את החשבון שמחוברים אליו.</p>
+              ) : (
+                <DeleteWorkerButton id={user.id} name={user.name} />
+              )}
             </div>
           </details>
         ))}
@@ -62,14 +67,17 @@ export default async function PeoplePage() {
       <RateForm jobs={jobs} workers={users.filter((user) => user.role === "worker")} />
       <div className="mt-3 grid gap-2">
         {rates.map((rate) => (
-          <div key={rate.id} className="card p-4 text-sm">
-            <p className="font-bold">{formatMoney(rate.hourlyRate)} לשעה</p>
-            <p className="text-[var(--muted)]">
-              {rate.user?.name || "כל העובדים"}
-              {rate.jobType ? ` · ${rate.jobType.name}` : " · כל העבודות"}
-              {rate.minAge != null || rate.maxAge != null ? ` · גיל ${rate.minAge ?? "*"}–${rate.maxAge ?? "*"}` : ""}
-              {rate.active ? "" : " · כבוי"}
-            </p>
+          <div key={rate.id} className="card flex items-start justify-between gap-3 p-4 text-sm">
+            <div>
+              <p className="font-bold">{formatMoney(rate.hourlyRate)} לשעה</p>
+              <p className="text-[var(--muted)]">
+                {rate.user?.name || "כל העובדים"}
+                {rate.jobType ? ` · ${rate.jobType.name}` : " · כל העבודות"}
+                {rate.minAge != null || rate.maxAge != null ? ` · גיל ${rate.minAge ?? "*"}–${rate.maxAge ?? "*"}` : ""}
+                {rate.active ? "" : " · כבוי"}
+              </p>
+            </div>
+            <DeleteRateButton id={rate.id} />
           </div>
         ))}
       </div>

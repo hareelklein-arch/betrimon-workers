@@ -31,8 +31,7 @@ export function ChatForm({ workDateKey }: { workDateKey: string }) {
     >
       <input type="hidden" name="workDateKey" value={workDateKey} />
       <label className="field">
-        <span>הודעה לקבוצת היום</span>
-        <textarea name="body" rows={2} placeholder="למשל: אני יכול/ה מ-16:00 עד 19:00" required />
+        <textarea name="body" rows={2} placeholder="למשל: אני יכול/ה מ-16:00 עד 19:00" aria-label="הודעה" required />
       </label>
       {error ? <p className="text-sm font-bold text-[var(--danger)]">{error}</p> : null}
       <button className="btn" disabled={pending}>

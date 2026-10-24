@@ -10,11 +10,7 @@ const heDateTime = new Intl.DateTimeFormat("he-IL", {
   month: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-});
-
-const heTime = new Intl.DateTimeFormat("he-IL", {
-  hour: "2-digit",
-  minute: "2-digit",
+  hourCycle: "h23",
 });
 
 const heMonth = new Intl.DateTimeFormat("he-IL", {
@@ -30,8 +26,37 @@ export function formatDateTime(value: Date | string) {
   return heDateTime.format(new Date(value));
 }
 
+function clock12AndPeriod(hour: number) {
+  if (hour === 0) return { clock12: 12, period: "בלילה" };
+  if (hour < 5) return { clock12: hour, period: "בלילה" };
+  if (hour < 12) return { clock12: hour, period: "בבוקר" };
+  if (hour === 12) return { clock12: 12, period: "בצהריים" };
+  if (hour < 17) return { clock12: hour - 12, period: "בצהריים" };
+  return { clock12: hour - 12, period: "בערב" };
+}
+
+export function formatClock24(hour: number, minute = 0) {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function formatSpokenTime(hour: number, minute = 0) {
+  const { clock12, period } = clock12AndPeriod(hour);
+  const minutePart = minute === 0 ? "" : `:${String(minute).padStart(2, "0")}`;
+  return `${clock12}${minutePart} ${period}`;
+}
+
 export function formatTime(value: Date | string) {
-  return heTime.format(new Date(value));
+  const date = new Date(value);
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  return `${formatClock24(hour, minute)} · ${formatSpokenTime(hour, minute)}`;
+}
+
+export function parseTimeInput(value?: string) {
+  if (!value) return null;
+  const [hours, minutes] = value.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return { hour: hours, minute: minutes };
 }
 
 export function formatMonth(year: number, month: number) {
@@ -121,7 +146,7 @@ export const STATUS_LABELS: Record<string, string> = {
   swapped: "הוחלף",
   cancelled: "בוטל",
   open: "פתוח",
-  taken: "אושר",
+  taken: "נלקחה",
   expired: "פג תוקף",
 };
 

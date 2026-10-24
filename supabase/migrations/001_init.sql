@@ -54,6 +54,7 @@ create table if not exists public.shifts (
   starts_at timestamptz,
   ends_at timestamptz,
   notes text,
+  trainee boolean not null default false,
   status text not null default 'scheduled',
   created_by_id text not null references public.users(id),
   created_at timestamptz not null default now()
@@ -97,7 +98,7 @@ create table if not exists public.notifications (
   body text not null,
   read_at timestamptz,
   created_at timestamptz not null default now(),
-  meta jsonb
+  meta text
 );
 
 create table if not exists public.payroll_periods (
@@ -123,10 +124,33 @@ create table if not exists public.audit_log (
   action text not null,
   entity text not null,
   entity_id text not null,
-  before jsonb,
-  after jsonb,
+  before text,
+  after text,
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.otp_codes (
+  id text primary key,
+  phone text not null,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  consumed boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists otp_codes_phone_created_idx
+  on public.otp_codes (phone, created_at desc);
+
+create table if not exists public.push_subscriptions (
+  id text primary key,
+  user_id text not null references public.users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null
+);
+
+create index if not exists date_chat_messages_date_created_idx
+  on public.date_chat_messages (work_date_key, created_at);
 
 alter table public.users enable row level security;
 alter table public.worker_profiles enable row level security;
@@ -138,7 +162,10 @@ alter table public.time_entries enable row level security;
 alter table public.swap_requests enable row level security;
 alter table public.notifications enable row level security;
 alter table public.payroll_periods enable row level security;
+alter table public.date_chat_messages enable row level security;
 alter table public.audit_log enable row level security;
+alter table public.otp_codes enable row level security;
+alter table public.push_subscriptions enable row level security;
 
 -- App currently enforces authorization in server actions.
 -- When switching to Supabase Auth, map auth.uid() to public.users

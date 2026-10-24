@@ -1,7 +1,7 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash, randomInt, timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/format";
 
@@ -12,15 +12,33 @@ export type SessionUser = {
   role: "worker" | "manager";
 };
 
-const sessionOptions: SessionOptions = {
-  cookieName: "betrimon_session",
-  password: process.env.SESSION_SECRET || "local-dev-secret-change-me-32chars!",
-  cookieOptions: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    sameSite: "lax",
-  },
-};
+export function demoAuthEnabled() {
+  if (process.env.ALLOW_DEMO_OTP === "true") return true;
+  return process.env.NODE_ENV !== "production";
+}
+
+function sessionPassword() {
+  const secret = process.env.SESSION_SECRET || "";
+  if (process.env.NODE_ENV === "production") {
+    if (secret.length < 32) {
+      throw new Error("SESSION_SECRET must be at least 32 characters in production.");
+    }
+    return secret;
+  }
+  return secret || "local-dev-secret-change-me-32chars!";
+}
+
+function sessionOptions(): SessionOptions {
+  return {
+    cookieName: "betrimon_session",
+    password: sessionPassword(),
+    cookieOptions: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+    },
+  };
+}
 
 function hashCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
@@ -35,7 +53,7 @@ function codesMatch(a: string, b: string) {
 
 export async function getSession() {
   const cookieStore = await cookies();
-  return getIronSession<{ user?: SessionUser }>(cookieStore, sessionOptions);
+  return getIronSession<{ user?: SessionUser }>(cookieStore, sessionOptions());
 }
 
 export async function getCurrentUser() {
@@ -80,8 +98,14 @@ export async function sendOtp(phoneInput: string) {
     return { ok: false as const, error: "לא נמצא עובד עם מספר הטלפון הזה." };
   }
 
-  const demoCode = process.env.DEMO_OTP || "123456";
-  const code = process.env.NODE_ENV === "production" ? String(randomInt(100000, 999999)) : demoCode;
+  if (!demoAuthEnabled()) {
+    return {
+      ok: false as const,
+      error: "שליחת קוד ב-SMS עדיין לא מוגדרת. לבדיקה פרטית ב-Vercel הגדירו ALLOW_DEMO_OTP=true ו-DEMO_OTP.",
+    };
+  }
+
+  const code = process.env.DEMO_OTP || "123456";
 
   await prisma.otpCode.create({
     data: {
@@ -93,7 +117,7 @@ export async function sendOtp(phoneInput: string) {
 
   return {
     ok: true as const,
-    demoCode: process.env.NODE_ENV === "production" ? undefined : code,
+    demoCode: code,
   };
 }
 

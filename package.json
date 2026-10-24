@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "postinstall": "node scripts/prisma-generate.mjs",
+    "dev": "prisma generate --schema=prisma/schema.sqlite.prisma && next dev --turbopack",
+    "build": "node scripts/prisma-generate.mjs && next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma db push && tsx prisma/seed.ts"
+    "db:push": "prisma db push --schema=prisma/schema.sqlite.prisma",
+    "db:seed": "prisma generate --schema=prisma/schema.sqlite.prisma && tsx prisma/seed.ts",
+    "db:reset": "prisma db push --schema=prisma/schema.sqlite.prisma && tsx prisma/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -20,7 +21,8 @@
     "next": "^15.5.28",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",

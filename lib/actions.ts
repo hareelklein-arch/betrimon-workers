@@ -8,9 +8,13 @@ import { writeAudit } from "@/lib/audit";
 import { notifyUsers } from "@/lib/notifications";
 import { assertPeriodOpen } from "@/lib/period";
 import { hoursBetween, rateForWorker } from "@/lib/payroll";
-import { shiftsOverlap, youthShiftWarnings } from "@/lib/youth";
+import { shiftsOverlap } from "@/lib/youth";
 import { normalizePhone, startOfDay } from "@/lib/format";
-import { canRequestSwap, combineDateAndTime, isFutureShift, parseDateKey, shiftDateKey, swapExpiresAt } from "@/lib/shift";
+import { workersRankedByLeastWork } from "@/lib/queries";
+import { assignShiftsForJob } from "@/lib/assign-shifts";
+import { closeChatIfWorkDone } from "@/lib/chat";
+import { matchNamed, readScheduleFile } from "@/lib/schedule-import";
+import { canRequestSwap, combineDateAndTime, dateKey, isFutureShift, parseDateKey, shiftDateKey, shiftDay, swapExpiresAt } from "@/lib/shift";
 
 function formString(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -92,6 +96,7 @@ export async function submitTimeEntryAction(formData: FormData) {
   }
 
   await writeAudit({ userId: user.id, action: "submit", entity: "time_entry", entityId: entry.id, after: entry });
+  await closeChatIfWorkDone(dateKey(workDate));
   revalidateApp();
   return { ok: true as const };
 }
@@ -135,6 +140,7 @@ export async function reviewTimeEntryAction(formData: FormData) {
       type: "time_entry_rejected",
       title: "דיווח נדחה",
       body: `${manager.name} דחה דיווח שעות. ${rejectionReason || ""}`.trim(),
+      meta: { shiftId: entry.shiftId },
     });
   } else {
     return { ok: false as const, error: "החלטה לא תקינה." };
@@ -156,64 +162,225 @@ async function overlappingShift(userId: string, startsAt: Date | null, endsAt: D
   return existing.find((shift) => shiftsOverlap({ startsAt, endsAt }, shift));
 }
 
+export async function suggestWorkersAction(formData: FormData) {
+  await requireManager();
+  const workDate = parseDateInput(formString(formData, "workDate"));
+  if (Number.isNaN(workDate.getTime())) {
+    return { ok: false as const, error: "בחרו תאריך." };
+  }
+  const workers = await workersRankedByLeastWork(workDate, {
+    jobTypeId: formString(formData, "jobTypeId") || undefined,
+    siteId: formString(formData, "siteId") || undefined,
+  });
+  return { ok: true as const, workers };
+}
+
 export async function createShiftAction(formData: FormData) {
   const manager = await requireManager();
-  const userId = formString(formData, "userId");
+  const userIds = formData.getAll("userId").map((value) => String(value).trim()).filter(Boolean);
+  const traineeIds = formData.getAll("traineeId").map((value) => String(value).trim()).filter(Boolean);
   const siteId = formString(formData, "siteId");
   const jobTypeId = formString(formData, "jobTypeId");
   const workDate = parseDateInput(formString(formData, "workDate"));
-  const startTime = formString(formData, "startTime");
-  const endTime = formString(formData, "endTime");
   const notes = formString(formData, "notes") || null;
-  const startsAt = startTime ? combineDateAndTime(workDate, startTime) : null;
-  const endsAt = endTime ? combineDateAndTime(workDate, endTime) : null;
 
-  if (!userId || !siteId || !jobTypeId || Number.isNaN(workDate.getTime())) {
-    return { ok: false as const, error: "חסרים פרטי משמרת תקינים." };
+  const uniqueWorkerIds = [...new Set(userIds)];
+  const uniqueTraineeIds = [...new Set(traineeIds)].filter((id) => !uniqueWorkerIds.includes(id));
+  if (!siteId || !jobTypeId || Number.isNaN(workDate.getTime())) {
+    return { ok: false as const, error: "בחרו תאריך, סוג עבודה ומקום." };
   }
-  if ((startTime && !endTime) || (!startTime && endTime)) {
-    return { ok: false as const, error: "אפשר להשאיר שעות ריקות, או למלא גם התחלה וגם סיום." };
+  if (uniqueWorkerIds.length < 2) {
+    return { ok: false as const, error: "חייבים לפחות 2 עובדים. מתלמדים מוסיפים בנפרד." };
   }
-  if (startsAt && endsAt && endsAt <= startsAt) {
-    return { ok: false as const, error: "שעת הסיום צריכה להיות אחרי ההתחלה." };
-  }
-
-  const overlap = await overlappingShift(userId, startsAt, endsAt);
-  if (overlap) {
-    return { ok: false as const, error: "לעובד כבר יש משמרת חופפת." };
+  if (uniqueWorkerIds.length > 4) {
+    return { ok: false as const, error: "אפשר לשבץ עד 4 עובדים." };
   }
 
-  const worker = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
-  const nearby = await prisma.shift.findMany({
-    where: { userId, status: { not: "cancelled" } },
+  const alreadyAssigned = await prisma.shift.findMany({
+    where: { jobTypeId, siteId, status: { not: "cancelled" }, trainee: false },
+    select: { userId: true, workDate: true, startsAt: true },
   });
-  const warnings = youthShiftWarnings(worker?.profile?.birthDate, { startsAt, endsAt }, nearby);
+  const alreadyIds = new Set(
+    alreadyAssigned.filter((shift) => dateKey(shiftDay(shift)) === dateKey(startOfDay(workDate))).map((shift) => shift.userId),
+  );
+  const newWorkerIds = uniqueWorkerIds.filter((id) => !alreadyIds.has(id));
+  if (alreadyIds.size + newWorkerIds.length > 4) {
+    return { ok: false as const, error: "בעבודה הזו כבר יש מספיק עובדים. מקסימום 4." };
+  }
 
-  const shift = await prisma.shift.create({
-    data: { userId, siteId, jobTypeId, workDate: startOfDay(workDate), startsAt, endsAt, notes, createdById: manager.id },
-    include: { site: true, jobType: true, user: true },
+  const result = await assignShiftsForJob({
+    managerId: manager.id,
+    siteId,
+    jobTypeId,
+    workDate,
+    workerIds: uniqueWorkerIds,
+    traineeIds: uniqueTraineeIds,
+    notes,
   });
-
-  await writeAudit({ userId: manager.id, action: "create", entity: "shift", entityId: shift.id, after: shift });
-  await notifyUsers({
-    userIds: [userId],
-    type: "shift_assigned",
-    title: "שובצת למשמרת",
-    body: `${shift.jobType.name} ב${shift.site.name}. אפשר לתאם שעות בצ'אט של התאריך.`,
-  });
+  if (result.assignedWorkers < 1) {
+    return { ok: false as const, error: "כל העובדים שנבחרו כבר משובצים לעבודה הזו." };
+  }
 
   revalidateApp();
-  return { ok: true as const, warnings };
+  return { ok: true as const, warnings: result.warnings };
+}
+
+export async function importScheduleAction(formData: FormData) {
+  const manager = await requireManager();
+  const file = formData.get("file");
+  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function" || file.size === 0) {
+    return { ok: false as const, error: "בחרו קובץ טבלה להעלאה." };
+  }
+  if (file.size > 2_000_000) {
+    return { ok: false as const, error: "הקובץ גדול מדי. עד 2MB." };
+  }
+
+  const parsed = await readScheduleFile(Buffer.from(await file.arrayBuffer()), file.name || "schedule.csv");
+  if (parsed.error) return { ok: false as const, error: parsed.error };
+  if (parsed.rows.length === 0) {
+    return { ok: false as const, error: "הטבלה ריקה. צריך שורת כותרות ולפחות שורת שיבוץ אחת." };
+  }
+  if (parsed.rows.length > 400) {
+    return { ok: false as const, error: "יותר מדי שורות. פצלו לטבלה של עד 400 שורות." };
+  }
+
+  const [sites, jobs, workers] = await Promise.all([
+    prisma.site.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    prisma.jobType.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    prisma.user.findMany({ where: { role: "worker", active: true }, select: { id: true, name: true } }),
+  ]);
+
+  const warnings: string[] = [];
+  const groups = new Map<
+    string,
+    { date: Date; siteId: string; jobTypeId: string; workerIds: string[]; traineeIds: string[]; label: string }
+  >();
+
+  for (const row of parsed.rows) {
+    if (!row.date) {
+      warnings.push(`שורה ${row.line}: תאריך לא מובן (${row.dateRaw || "ריק"}).`);
+      continue;
+    }
+    if (!row.jobName || !row.siteName) {
+      warnings.push(`שורה ${row.line}: חסרים סוג עבודה או מקום.`);
+      continue;
+    }
+    const job = matchNamed(row.jobName, jobs);
+    const site = matchNamed(row.siteName, sites);
+    if (!job) {
+      warnings.push(`שורה ${row.line}: לא מצאנו סוג עבודה בשם «${row.jobName}».`);
+      continue;
+    }
+    if (!site) {
+      warnings.push(`שורה ${row.line}: לא מצאנו מקום בשם «${row.siteName}».`);
+      continue;
+    }
+    if (row.workerNames.length + row.traineeNames.length === 0) {
+      warnings.push(`שורה ${row.line}: אין שמות עובדים.`);
+      continue;
+    }
+
+    const key = `${dateKey(row.date)}|${job.id}|${site.id}`;
+    const group = groups.get(key) ?? {
+      date: startOfDay(row.date),
+      siteId: site.id,
+      jobTypeId: job.id,
+      workerIds: [] as string[],
+      traineeIds: [] as string[],
+      label: `${job.name} · ${site.name} · ${dateKey(row.date)}`,
+    };
+
+    for (const name of row.workerNames) {
+      const user = matchNamed(name, workers);
+      if (!user) {
+        warnings.push(`שורה ${row.line}: לא מצאנו עובד בשם «${name}».`);
+        continue;
+      }
+      if (!group.workerIds.includes(user.id) && !group.traineeIds.includes(user.id)) {
+        group.workerIds.push(user.id);
+      }
+    }
+    for (const name of row.traineeNames) {
+      const user = matchNamed(name, workers);
+      if (!user) {
+        warnings.push(`שורה ${row.line}: לא מצאנו מתלמד בשם «${name}».`);
+        continue;
+      }
+      if (group.workerIds.includes(user.id) || group.traineeIds.includes(user.id)) continue;
+      group.traineeIds.push(user.id);
+    }
+    groups.set(key, group);
+  }
+
+  let assigned = 0;
+  let jobsCount = 0;
+  for (const group of groups.values()) {
+    if (group.workerIds.length < 1) {
+      warnings.push(`${group.label}: צריך לפחות עובד אחד (מתלמדים לבד לא מספיק).`);
+      continue;
+    }
+    const result = await assignShiftsForJob({
+      managerId: manager.id,
+      siteId: group.siteId,
+      jobTypeId: group.jobTypeId,
+      workDate: group.date,
+      workerIds: group.workerIds,
+      traineeIds: group.traineeIds,
+    });
+    const created = result.assignedWorkers + result.assignedTrainees;
+    if (created > 0) {
+      assigned += created;
+      jobsCount += 1;
+    } else {
+      warnings.push(`${group.label}: כולם כבר משובצים לעבודה הזו.`);
+    }
+    for (const warning of result.warnings) {
+      warnings.push(`${group.label}: ${warning}`);
+    }
+  }
+
+  if (assigned === 0) {
+    return {
+      ok: false as const,
+      error: "לא נוצרו שיבוצים. בדקו שמות, תאריכים וסוגי עבודה בטבלה.",
+      warnings: [...new Set(warnings)],
+    };
+  }
+
+  revalidateApp();
+  return {
+    ok: true as const,
+    assigned,
+    jobs: jobsCount,
+    warnings: [...new Set(warnings)],
+  };
 }
 
 export async function cancelShiftAction(formData: FormData) {
+  return cancelShiftsAction(formData);
+}
+
+export async function cancelShiftsAction(formData: FormData) {
   const manager = await requireManager();
-  const id = formString(formData, "id");
-  const before = await prisma.shift.findUnique({ where: { id } });
-  if (!before) return { ok: false as const, error: "המשמרת לא נמצאה." };
-  await prisma.shift.update({ where: { id }, data: { status: "cancelled" } });
-  await prisma.swapRequest.updateMany({ where: { shiftId: id, status: "open" }, data: { status: "cancelled" } });
-  await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: id, before });
+  const ids = [...new Set(formData.getAll("id").map((value) => String(value).trim()).filter(Boolean))];
+  if (ids.length === 0) return { ok: false as const, error: "לא נבחרו משמרות." };
+
+  for (const id of ids) {
+    const before = await prisma.shift.findUnique({ where: { id }, include: { jobType: true, site: true } });
+    if (!before || before.status === "cancelled") continue;
+    await prisma.shift.update({ where: { id }, data: { status: "cancelled" } });
+    await prisma.swapRequest.updateMany({ where: { shiftId: id, status: "open" }, data: { status: "cancelled" } });
+    await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: id, before });
+    await notifyUsers({
+      userIds: [before.userId],
+      type: "shift_cancelled",
+      title: "משמרת בוטלה",
+      body: `${before.jobType.name} ב${before.site.name} בוטלה.`,
+      meta: { shiftId: id },
+    });
+    await closeChatIfWorkDone(shiftDateKey(before));
+  }
+
   revalidateApp();
   return { ok: true as const };
 }
@@ -225,7 +392,7 @@ export async function requestSwapAction(formData: FormData) {
   if (!shift || shift.userId !== user.id) {
     return { ok: false as const, error: "אפשר לבקש החלפה רק למשמרת שלכם." };
   }
-  if (shift.status !== "scheduled") {
+  if (shift.status === "cancelled") {
     return { ok: false as const, error: "אי אפשר להחליף משמרת שבוטלה." };
   }
   if (!canRequestSwap(shift)) {
@@ -297,8 +464,8 @@ export async function takeSwapAction(formData: FormData) {
   await notifyUsers({
     userIds: [request.requesterId],
     type: "swap_taken",
-    title: "אישרו את ההחלפה",
-    body: `${user.name} אישר/ה את בקשת ההחלפה ולקח/ה את המשמרת.`,
+    title: "ההחלפה בוצעה",
+    body: `${user.name} לקח/ה את המשמרת במקומכם.`,
     meta: { swapRequestId: request.id, takerId: user.id },
   });
 
@@ -401,6 +568,82 @@ export async function togglePayRateAction(formData: FormData) {
   return { ok: true as const };
 }
 
+export async function deletePayRateAction(formData: FormData) {
+  const manager = await requireManager();
+  const id = formString(formData, "id");
+  const before = await prisma.payRate.findUnique({ where: { id } });
+  if (!before) return { ok: false as const, error: "התעריף לא נמצא." };
+  await prisma.payRate.delete({ where: { id } });
+  await writeAudit({ userId: manager.id, action: "delete", entity: "pay_rate", entityId: id, before });
+  revalidateApp();
+  return { ok: true as const };
+}
+
+export async function deleteWorkerAction(formData: FormData) {
+  const manager = await requireManager();
+  const id = formString(formData, "id");
+  if (!id) return { ok: false as const, error: "חסר מזהה." };
+  if (id === manager.id) return { ok: false as const, error: "אי אפשר למחוק את עצמך." };
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) return { ok: false as const, error: "העובד לא נמצא." };
+
+  if (user.role === "manager") {
+    const otherManagers = await prisma.user.count({ where: { role: "manager", id: { not: id } } });
+    if (otherManagers === 0) {
+      return { ok: false as const, error: "אי אפשר למחוק את המנהל האחרון." };
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.shift.updateMany({ where: { createdById: id }, data: { createdById: manager.id } });
+    await tx.timeEntry.updateMany({ where: { reviewedById: id }, data: { reviewedById: null } });
+    await tx.timeEntry.deleteMany({ where: { userId: id } });
+    await tx.swapRequest.deleteMany({ where: { requesterId: id } });
+    await tx.swapRequest.updateMany({ where: { takerId: id }, data: { takerId: null } });
+    await tx.auditLog.updateMany({ where: { userId: id }, data: { userId: null } });
+    await tx.payrollPeriod.updateMany({ where: { lockedById: id }, data: { lockedById: null } });
+    await tx.shift.deleteMany({ where: { userId: id } });
+    await tx.user.delete({ where: { id } });
+  });
+
+  await writeAudit({ userId: manager.id, action: "delete", entity: "user", entityId: id, before: user });
+  revalidateApp();
+  return { ok: true as const };
+}
+
+export async function deleteNamedItemAction(formData: FormData) {
+  const manager = await requireManager();
+  const kind = formString(formData, "kind");
+  const id = formString(formData, "id");
+  if (!id) return { ok: false as const, error: "חסר מזהה." };
+
+  if (kind === "site") {
+    const before = await prisma.site.findUnique({ where: { id } });
+    if (!before) return { ok: false as const, error: "המקום לא נמצא." };
+    await prisma.$transaction(async (tx) => {
+      await tx.timeEntry.deleteMany({ where: { siteId: id } });
+      await tx.shift.deleteMany({ where: { siteId: id } });
+      await tx.site.delete({ where: { id } });
+    });
+    await writeAudit({ userId: manager.id, action: "delete", entity: "site", entityId: id, before });
+  } else if (kind === "job") {
+    const before = await prisma.jobType.findUnique({ where: { id } });
+    if (!before) return { ok: false as const, error: "סוג העבודה לא נמצא." };
+    await prisma.$transaction(async (tx) => {
+      await tx.timeEntry.deleteMany({ where: { jobTypeId: id } });
+      await tx.shift.deleteMany({ where: { jobTypeId: id } });
+      await tx.jobType.delete({ where: { id } });
+    });
+    await writeAudit({ userId: manager.id, action: "delete", entity: "job_type", entityId: id, before });
+  } else {
+    return { ok: false as const, error: "סוג לא מוכר." };
+  }
+
+  revalidateApp();
+  return { ok: true as const };
+}
+
 export async function lockPeriodAction(formData: FormData) {
   const manager = await requireManager();
   const year = Number(formString(formData, "year"));
@@ -478,6 +721,9 @@ export async function sendDateChatAction(formData: FormData) {
   }
   if (!(await canAccessDateChat(user.id, user.role, workDateKey))) {
     return { ok: false as const, error: "אפשר להשתתף רק בצ'אט של תאריך ששובצתם אליו." };
+  }
+  if (await closeChatIfWorkDone(workDateKey)) {
+    return { ok: false as const, error: "העבודה הסתיימה והצ'אט נסגר." };
   }
 
   await prisma.dateChatMessage.create({

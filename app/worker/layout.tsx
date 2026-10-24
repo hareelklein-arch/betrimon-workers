@@ -3,7 +3,7 @@ import { AppShell } from "@/components/shell";
 
 const nav = [
   { href: "/worker", label: "שלי" },
-  { href: "/worker/report", label: "דיווח" },
+  { href: "/worker/history", label: "סיימתי" },
   { href: "/worker/chat", label: "צ'אט" },
   { href: "/worker/swaps", label: "החלפות" },
   { href: "/worker/stats", label: "שכר" },
