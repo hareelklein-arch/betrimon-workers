@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, loginWithPassword, logout, requireManager, requireUser } from "@/lib/auth";
+import { getCurrentUser, requireManager, requireUser } from "@/lib/auth";
 import { hashPassword, validatePassword, validateUsername } from "@/lib/password";
 import { writeAudit } from "@/lib/audit";
 import { notifyUsers } from "@/lib/notifications";
@@ -31,14 +30,6 @@ function revalidateApp() {
   revalidatePath("/", "layout");
 }
 
-export async function loginAction(formData: FormData) {
-  return loginWithPassword(formString(formData, "username"), formString(formData, "password"));
-}
-
-export async function logoutAction() {
-  await logout();
-  redirect("/login");
-}
 
 export async function submitTimeEntryAction(formData: FormData) {
   const user = await requireUser();
@@ -707,22 +698,6 @@ export async function markNotificationsReadAction() {
     data: { readAt: new Date() },
   });
   revalidateApp();
-}
-
-export async function savePushSubscriptionAction(payload: { endpoint: string; keys: { p256dh: string; auth: string } }) {
-  const user = await getCurrentUser();
-  if (!user) return { ok: false as const };
-  await prisma.pushSubscription.upsert({
-    where: { endpoint: payload.endpoint },
-    update: { userId: user.id, p256dh: payload.keys.p256dh, auth: payload.keys.auth },
-    create: {
-      userId: user.id,
-      endpoint: payload.endpoint,
-      p256dh: payload.keys.p256dh,
-      auth: payload.keys.auth,
-    },
-  });
-  return { ok: true as const };
 }
 
 export async function canAccessDateChat(userId: string, role: string, workDateKey: string) {

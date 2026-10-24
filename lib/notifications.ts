@@ -72,12 +72,6 @@ export async function notifyUsers(params: {
   );
 }
 
-export async function unreadCount(userId: string) {
-  return prisma.notification.count({
-    where: { userId, readAt: null },
-  });
-}
-
 export function parseNotificationMeta(meta: string | null) {
   if (!meta) return {} as { shiftId?: string; swapRequestId?: string };
   try {

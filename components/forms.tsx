@@ -6,7 +6,6 @@ import {
   cancelShiftAction,
   createShiftAction,
   lockPeriodAction,
-  loginAction,
   requestSwapAction,
   reviewTimeEntryAction,
   submitTimeEntryAction,
@@ -15,6 +14,7 @@ import {
   upsertPayRateAction,
   upsertWorkerAction,
 } from "@/lib/actions";
+import { loginAction } from "@/lib/auth-actions";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;

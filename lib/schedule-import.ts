@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 
 export type ParsedScheduleRow = {
   line: number;
@@ -218,6 +217,7 @@ function isYesNoValue(value: string) {
 export async function readScheduleFile(buffer: Buffer, filename: string): Promise<ScheduleParseResult> {
   if (isSpreadsheetBinary(buffer) || /\.xlsx?$/i.test(filename)) {
     try {
+      const XLSX = await import("xlsx");
       const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
       const sheetName = workbook.SheetNames[0];
       if (!sheetName) return { rows: [], error: "הקובץ ריק." };

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { logoutAction } from "@/lib/actions";
-import { unreadCount } from "@/lib/notifications";
+import { logoutAction } from "@/lib/auth-actions";
+import { unreadCount } from "@/lib/unread";
 import { ROLE_LABELS } from "@/lib/format";
 import { PushToggle } from "@/components/push-toggle";
 import { SetupNudge } from "@/components/setup-nudge";

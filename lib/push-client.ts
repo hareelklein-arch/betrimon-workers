@@ -1,6 +1,6 @@
 "use client";
 
-import { savePushSubscriptionAction } from "@/lib/actions";
+import { savePushSubscriptionAction } from "@/lib/push-actions";
 
 export function isAppInstalled() {
   if (typeof window === "undefined") return false;
