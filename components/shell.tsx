@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
 import { ROLE_LABELS } from "@/lib/format";
-import { PushToggle } from "@/components/push-toggle";
 import { SetupNudge } from "@/components/setup-nudge";
 
 type NavItem = { href: string; label: string };
@@ -41,16 +40,13 @@ export function AppShell({
       <SetupNudge />
       {banner}
       <main>{children}</main>
-      <div className="mt-6">
-        <PushToggle />
-      </div>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--line)] bg-[var(--card)]/95 backdrop-blur">
         <div
           className="mx-auto grid max-w-5xl gap-1 px-2 py-2"
           style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
         >
           {nav.map((item) => (
-            <Link key={item.href} href={item.href} className="btn btn-secondary px-2 text-xs sm:text-sm">
+            <Link key={item.href} href={item.href} data-wait className="btn btn-secondary px-2 text-xs sm:text-sm">
               {item.label}
             </Link>
           ))}

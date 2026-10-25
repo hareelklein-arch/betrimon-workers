@@ -22,7 +22,7 @@ export function PeopleNav({ current }: { current: PeopleTab }) {
           <Link
             key={tab.id}
             href={`/manager/people?tab=${tab.id}`}
-            data-no-wait
+            data-wait
             aria-current={active ? "page" : undefined}
             className={`flex min-h-12 items-center justify-center rounded-[0.9rem] px-1 text-center text-xs font-extrabold sm:px-2 sm:text-sm ${
               active

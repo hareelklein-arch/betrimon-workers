@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { enablePushNotifications, isAppInstalled, notificationsAllowed } from "@/lib/push-client";
-import { PleaseWait, beginWait, endWait, waitLabel } from "@/components/please-wait";
+import {
+  isAppInstalled,
+  notificationsAllowed,
+  notificationsUndecided,
+  promptNotificationsIfNeeded,
+} from "@/lib/push-client";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -42,34 +47,44 @@ export function SetupNudge() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function ask() {
+      if (cancelled || !notificationsUndecided()) return;
+      const result = await promptNotificationsIfNeeded();
+      if (cancelled) return;
+      refresh();
+      if (!result.ok && Notification.permission === "denied") {
+        setMessage("אפשר לאשר התראות אחר כך בהגדרות הדפדפן.");
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      void ask();
+    }, 400);
+    const onFirstGesture = () => {
+      void ask();
+    };
+    window.addEventListener("pointerdown", onFirstGesture, { once: true, capture: true });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", onFirstGesture, { capture: true });
+    };
+  }, []);
+
   if (!ready || (installed && notifyOk)) return null;
 
   async function installApp() {
     if (!installEvent) return;
-    beginWait();
     setPending(true);
     setMessage("");
     await installEvent.prompt();
     const choice = await installEvent.userChoice;
     setInstallEvent(null);
     setPending(false);
-    endWait();
     if (choice.outcome === "accepted") setInstalled(true);
-    refresh();
-  }
-
-  async function allowNotify() {
-    beginWait();
-    setPending(true);
-    setMessage("");
-    const result = await enablePushNotifications();
-    setPending(false);
-    endWait();
-    if (!result.ok) {
-      setMessage(result.error);
-      return;
-    }
-    setNotifyOk(true);
     refresh();
   }
 
@@ -77,26 +92,21 @@ export function SetupNudge() {
     <section className="card mb-5 border-[var(--primary)] bg-[#e7f3ea] p-4">
       <h3 className="text-lg font-extrabold">התקינו את האפליקציה ואשרו התראות</h3>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        כדי לקבל שיבוצים ועדכונים בטלפון צריך להוסיף למסך הבית ולאשר התראות. אחרי שעושים את זה פעם אחת, ההודעה לא תופיע
-        בכניסה הבאה.
+        בכניסה הראשונה יופיע חלון של הדפדפן לאישור התראות. כדי לקבל שיבוצים ועדכונים בטלפון צריך גם להוסיף למסך הבית. אחרי
+        שעושים את זה פעם אחת, ההודעה לא תופיע בכניסה הבאה.
       </p>
       <ul className="mt-3 grid gap-1 text-sm font-bold">
         <li>{installed ? "נוספה למסך הבית" : "עדיין לא במסך הבית"}</li>
-        <li>{notifyOk ? "התראות אושרו" : "עדיין בלי אישור התראות"}</li>
+        <li>{notifyOk ? "התראות אושרו" : "ממתינים לאישור התראות של הדפדפן"}</li>
       </ul>
       <PleaseWait show={pending} />
-      <div className="mt-4 flex flex-wrap gap-2">
-        {!installed && installEvent ? (
+      {!installed && installEvent ? (
+        <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" className="btn" disabled={pending} onClick={installApp}>
             {waitLabel(pending, "הוספה למסך הבית")}
           </button>
-        ) : null}
-        {!notifyOk ? (
-          <button type="button" className="btn" disabled={pending} onClick={allowNotify}>
-            {waitLabel(pending, "אישור התראות")}
-          </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {!installed && iosHint ? (
         <p className="mt-3 text-sm text-[var(--muted)]">
           באייפון: כפתור שיתוף ← «הוספה למסך הבית», ואז פותחים מהאייקון החדש.

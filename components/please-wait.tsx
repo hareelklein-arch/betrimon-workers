@@ -30,14 +30,7 @@ export function endWait() {
 }
 
 export function busy(start: (job: () => void) => void, job: () => Promise<void>) {
-  beginWait();
-  start(async () => {
-    try {
-      await job();
-    } finally {
-      setTimeout(endWait, 3000);
-    }
-  });
+  start(job);
 }
 
 export function waitLabel(pending: boolean, label: string) {
@@ -64,10 +57,7 @@ function overlay() {
   );
 }
 
-export function PleaseWait({ show }: { show: boolean }) {
-  useEffect(() => {
-    if (show) beginWait();
-  }, [show]);
+export function PleaseWait({ show: _show }: { show: boolean }) {
   return null;
 }
 
@@ -77,10 +67,6 @@ export function WaitSubmit({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   const { pending } = useFormStatus();
-  useEffect(() => {
-    if (pending) beginWait();
-    else endWait();
-  }, [pending]);
   return (
     <button className={className} type="submit" {...props} disabled={pending || props.disabled}>
       {pending ? "אנא המתן…" : label}
@@ -98,29 +84,23 @@ export function WaitHost() {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    function onSubmit() {
-      beginWait();
-    }
     function onClick(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      const link = target.closest("a");
-      if (link) {
-        if (link.hasAttribute("data-no-wait")) return;
-        const href = link.getAttribute("href") || "";
-        if (link.target === "_blank" || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
-        if (href.startsWith("/") || href.startsWith("?")) beginWait();
+      const link = target.closest("a[data-wait]") as HTMLAnchorElement | null;
+      if (!link || link.hasAttribute("data-no-wait") || link.target === "_blank") return;
+      const href = link.getAttribute("href") || "";
+      if (!href.startsWith("/") && !href.startsWith("?")) return;
+      try {
+        const next = new URL(href, window.location.href);
+        if (next.pathname === window.location.pathname && next.search === window.location.search) return;
+      } catch {
         return;
       }
-      const button = target.closest("button");
-      if (!button || button.disabled) return;
-      const type = (button.getAttribute("type") || "submit").toLowerCase();
-      if (type === "submit") beginWait();
+      beginWait();
     }
-    document.addEventListener("submit", onSubmit, true);
     document.addEventListener("click", onClick, true);
     return () => {
-      document.removeEventListener("submit", onSubmit, true);
       document.removeEventListener("click", onClick, true);
     };
   }, []);

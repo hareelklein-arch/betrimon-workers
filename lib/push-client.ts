@@ -16,6 +16,27 @@ export function notificationsAllowed() {
   return typeof Notification !== "undefined" && Notification.permission === "granted";
 }
 
+export function notificationsUndecided() {
+  return typeof Notification !== "undefined" && Notification.permission === "default";
+}
+
+let promptInFlight: Promise<{ ok: true } | { ok: false; error: string }> | null = null;
+
+export function promptNotificationsIfNeeded() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return Promise.resolve({ ok: false as const, error: "הדפדפן הזה לא תומך בהתראות." });
+  }
+  if (Notification.permission === "denied") {
+    return Promise.resolve({ ok: false as const, error: "לא אושרה הרשאת התראות." });
+  }
+  if (!promptInFlight) {
+    promptInFlight = enablePushNotifications().finally(() => {
+      promptInFlight = null;
+    });
+  }
+  return promptInFlight;
+}
+
 export async function enablePushNotifications() {
   if (!("serviceWorker" in navigator) || !("Notification" in window)) {
     return { ok: false as const, error: "הדפדפן הזה לא תומך בהתראות." };

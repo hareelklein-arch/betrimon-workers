@@ -16,7 +16,7 @@ import {
   upsertWorkerAction,
 } from "@/lib/actions";
 import { loginAction } from "@/lib/auth-actions";
-import { PleaseWait, WaitSubmit, beginWait, busy, endWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, WaitSubmit, busy, waitLabel } from "@/components/please-wait";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
@@ -32,11 +32,9 @@ export function LoginForm() {
       className="grid gap-3"
       action={async (formData) => {
         setError("");
-        beginWait();
         const result = await loginAction(formData);
         if (!result.ok) {
           setError(result.error);
-          endWait();
           return;
         }
         router.replace(result.role === "manager" ? "/manager" : "/worker");

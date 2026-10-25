@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { MarkAllReadButton } from "@/components/forms";
+import { PushToggle } from "@/components/push-toggle";
 import { EmptyState, PageTitle } from "@/components/shell";
 import { formatDateTime } from "@/lib/format";
 import { dismissWorkerPendingNotifications, notificationCta } from "@/lib/notifications";
@@ -15,6 +16,7 @@ export async function NotificationsView({ userId }: { userId: string }) {
   return (
     <>
       <PageTitle title="התראות" subtitle="לוחצים על התראה כדי לעבור ישר לדף הרלוונטי." />
+      <PushToggle />
       <div className="mb-4">
         <MarkAllReadButton />
       </div>
