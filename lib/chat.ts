@@ -11,11 +11,16 @@ export async function dateChatFinished(workDateKey: string) {
 }
 
 export async function closeChatIfWorkDone(workDateKey: string) {
-  const finished = await dateChatFinished(workDateKey);
-  if (finished) {
-    await prisma.dateChatMessage.deleteMany({ where: { workDateKey } });
+  try {
+    const finished = await dateChatFinished(workDateKey);
+    if (finished) {
+      await prisma.dateChatMessage.deleteMany({ where: { workDateKey } });
+    }
+    return finished;
+  } catch (error) {
+    console.error("closeChatIfWorkDone", error);
+    return false;
   }
-  return finished;
 }
 
 export function dateWorkIsFinished(shiftsOnDate: { timeEntries: { status: string }[] }[]) {

@@ -23,6 +23,7 @@ export async function notifyUsers(params: {
 }) {
   if (params.userIds.length === 0) return;
 
+  try {
   const created = await prisma.$transaction(
     params.userIds.map((userId) =>
       prisma.notification.create({
@@ -70,6 +71,9 @@ export async function notifyUsers(params: {
       }
     }),
   );
+  } catch (error) {
+    console.error("notifyUsers", error);
+  }
 }
 
 export function parseNotificationMeta(meta: string | null) {

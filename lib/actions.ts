@@ -354,20 +354,29 @@ export async function cancelShiftsAction(formData: FormData) {
   const ids = [...new Set(formData.getAll("id").map((value) => String(value).trim()).filter(Boolean))];
   if (ids.length === 0) return { ok: false as const, error: "לא נבחרו משמרות." };
 
-  for (const id of ids) {
-    const before = await prisma.shift.findUnique({ where: { id }, include: { jobType: true, site: true } });
-    if (!before || before.status === "cancelled") continue;
-    await prisma.shift.update({ where: { id }, data: { status: "cancelled" } });
-    await prisma.swapRequest.updateMany({ where: { shiftId: id, status: "open" }, data: { status: "cancelled" } });
-    await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: id, before });
-    await notifyUsers({
-      userIds: [before.userId],
-      type: "shift_cancelled",
-      title: "משמרת בוטלה",
-      body: `${before.jobType.name} ב${before.site.name} בוטלה.`,
-      meta: { shiftId: id },
-    });
-    await closeChatIfWorkDone(shiftDateKey(before));
+  try {
+    for (const id of ids) {
+      const before = await prisma.shift.findUnique({ where: { id }, include: { jobType: true, site: true } });
+      if (!before || before.status === "cancelled") continue;
+      await prisma.shift.update({ where: { id }, data: { status: "cancelled" } });
+      try {
+        await prisma.swapRequest.updateMany({ where: { shiftId: id, status: "open" }, data: { status: "cancelled" } });
+      } catch (error) {
+        console.error("cancelShiftsAction swaps", error);
+      }
+      await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: id, before });
+      await notifyUsers({
+        userIds: [before.userId],
+        type: "shift_cancelled",
+        title: "משמרת בוטלה",
+        body: `${before.jobType.name} ב${before.site.name} בוטלה.`,
+        meta: { shiftId: id },
+      });
+      await closeChatIfWorkDone(shiftDateKey(before));
+    }
+  } catch (error) {
+    console.error("cancelShiftsAction", error);
+    return { ok: false as const, error: `לא הצלחנו לבטל את השיבוץ.\n${errorText(error)}` };
   }
 
   revalidateApp();

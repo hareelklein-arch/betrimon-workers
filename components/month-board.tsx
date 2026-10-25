@@ -83,13 +83,19 @@ function workerName(worker: { name: string; trainee: boolean }) {
 
 function CancelGroupButton({ ids }: { ids: string[] }) {
   const router = useRouter();
+  const [error, setError] = useState("");
   const [pending, start] = useTransition();
   return (
     <form
       action={(formData) => {
         start(async () => {
-          await cancelShiftsAction(formData);
-          router.refresh();
+          try {
+            const result = await cancelShiftsAction(formData);
+            setError(result.ok ? "" : result.error);
+            if (result.ok) router.refresh();
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "ביטול השיבוץ נכשל.");
+          }
         });
       }}
     >
@@ -99,6 +105,7 @@ function CancelGroupButton({ ids }: { ids: string[] }) {
       <button className="btn btn-danger" disabled={pending}>
         ביטול העבודה
       </button>
+      {error ? <p className="mt-2 text-sm font-bold text-[var(--danger)]">{error}</p> : null}
     </form>
   );
 }
@@ -162,8 +169,6 @@ export function MonthBoard({
         </Link>
       </div>
 
-      <ScheduleImportForm sites={sites} jobs={jobs} workers={workers} />
-
       <div className="card overflow-hidden p-2 sm:p-3">
         <div className="mb-1 grid grid-cols-7 text-center text-xs font-bold text-[var(--muted)]">
           {WEEKDAYS.map((day) => (
@@ -206,6 +211,8 @@ export function MonthBoard({
         </div>
       </div>
       <p className="text-sm text-[var(--muted)]">לחצו על יום בלוח כדי לשבץ עבודה.</p>
+
+      <ScheduleImportForm sites={sites} jobs={jobs} workers={workers} />
 
       {openDate && openDateObj ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
