@@ -11,10 +11,12 @@ export async function AppShell({
   user,
   nav,
   children,
+  pendingWorkers = 0,
 }: {
   user: { id: string; name: string; role: string };
   nav: NavItem[];
   children: React.ReactNode;
+  pendingWorkers?: number;
 }) {
   let unread = 0;
   try {
@@ -50,6 +52,14 @@ export async function AppShell({
         </div>
       </header>
       <SetupNudge />
+      {pendingWorkers > 0 ? (
+        <Link href="/manager/people?tab=workers" className="card mb-4 block border-[var(--accent)] p-4">
+          <p className="font-extrabold">יש עובדים לאשר</p>
+          <p className="text-sm text-[var(--muted)]">
+            {pendingWorkers === 1 ? "עובד אחד ממתין לאישור." : `${pendingWorkers} עובדים ממתינים לאישור.`}
+          </p>
+        </Link>
+      ) : null}
       <main>{children}</main>
       <div className="mt-6">
         <PushToggle />

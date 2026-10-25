@@ -1,5 +1,6 @@
 import { requireManager } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
+import { prisma } from "@/lib/db";
 import { errorText, isNextControlFlow } from "@/lib/errors";
 
 const nav = [
@@ -12,7 +13,17 @@ const nav = [
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   try {
     const user = await requireManager();
-    return <AppShell user={user} nav={nav}>{children}</AppShell>;
+    let pendingWorkers = 0;
+    try {
+      pendingWorkers = await prisma.user.count({ where: { pendingApproval: true } });
+    } catch (error) {
+      console.error("pendingWorkers", error);
+    }
+    return (
+      <AppShell user={user} nav={nav} pendingWorkers={pendingWorkers}>
+        {children}
+      </AppShell>
+    );
   } catch (error) {
     if (isNextControlFlow(error)) throw error;
     return (

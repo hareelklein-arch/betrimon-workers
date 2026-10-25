@@ -11,6 +11,7 @@ create table if not exists public.users (
   email text unique,
   role text not null check (role in ('worker', 'manager')),
   active boolean not null default true,
+  pending_approval boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

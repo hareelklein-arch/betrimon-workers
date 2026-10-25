@@ -83,11 +83,17 @@ export async function loginWithPassword(usernameInput: string, password: string)
   const user = username ? await prisma.user.findUnique({ where: { username } }) : null;
   const invalid = { ok: false as const, error: "שם משתמש או סיסמה שגויים." };
 
-  if (!user || !user.active || !user.passwordHash) {
+  if (!user || !user.passwordHash) {
     return invalid;
   }
   const matches = await verifyPassword(password, user.passwordHash);
   if (!matches) return invalid;
+  if (user.pendingApproval) {
+    return { ok: false as const, error: "החשבון ממתין לאישור המנהלת." };
+  }
+  if (!user.active) {
+    return { ok: false as const, error: "החשבון לא פעיל." };
+  }
 
   const session = await getSession();
   session.user = {

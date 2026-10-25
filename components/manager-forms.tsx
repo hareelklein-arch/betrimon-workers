@@ -397,6 +397,8 @@ export function ShiftForm({
 
 export function WorkerForm({
   worker,
+  plain,
+  onSuccess,
 }: {
   worker?: {
     id: string;
@@ -407,25 +409,34 @@ export function WorkerForm({
     role: string;
     active: boolean;
     profile?: {
-      birthDate: Date | null;
+      birthDate: Date | string | null;
       parentPhone: string | null;
       paymentMethod: string | null;
       bankDetails: string | null;
       personalRate: number | null;
     } | null;
   };
+  plain?: boolean;
+  onSuccess?: () => void;
 }) {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
-  const birthDate = worker?.profile?.birthDate ? worker.profile.birthDate.toISOString().slice(0, 10) : "";
+  const birthDate = worker?.profile?.birthDate
+    ? new Date(worker.profile.birthDate).toISOString().slice(0, 10)
+    : "";
 
   return (
     <form
-      className="card grid gap-3 p-4"
+      className={plain ? "grid gap-3" : "card grid gap-3 p-4"}
       action={(formData) => {
         start(async () => {
           const result = await upsertWorkerAction(formData);
           setError(result.ok ? "" : result.error);
+          if (result.ok) {
+            router.refresh();
+            onSuccess?.();
+          }
         });
       }}
     >
@@ -594,67 +605,90 @@ export function DeleteWorkerButton({ id, name }: { id: string; name: string }) {
 export function RateForm({
   jobs,
   workers,
+  rate,
 }: {
   jobs: { id: string; name: string }[];
   workers: { id: string; name: string }[];
+  rate?: {
+    id: string;
+    jobTypeId: string | null;
+    userId: string | null;
+    minAge: number | null;
+    maxAge: number | null;
+    hourlyRate: number;
+    active: boolean;
+  };
 }) {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   return (
-    <form
-      className="card grid gap-3 p-4"
-      action={(formData) => {
-        start(async () => {
-          const result = await upsertPayRateAction(formData);
-          setError(result.ok ? "" : result.error);
-        });
-      }}
-    >
-      <label className="field">
-        <span>סוג עבודה</span>
-        <select name="jobTypeId">
-          <option value="">הכול</option>
-          {jobs.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>עובד ספציפי</span>
-        <select name="userId">
-          <option value="">לא</option>
-          {workers.map((worker) => (
-            <option key={worker.id} value={worker.id}>
-              {worker.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="card grid gap-3 p-4">
+      <form
+        className="grid gap-3"
+        action={(formData) => {
+          start(async () => {
+            const result = await upsertPayRateAction(formData);
+            setError(result.ok ? "" : result.error);
+            if (result.ok) router.refresh();
+          });
+        }}
+      >
+        {rate ? <input type="hidden" name="id" value={rate.id} /> : null}
         <label className="field">
-          <span>מגיל</span>
-          <input type="number" name="minAge" />
+          <span>סוג עבודה</span>
+          <select name="jobTypeId" defaultValue={rate?.jobTypeId || ""}>
+            <option value="">הכול</option>
+            {jobs.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="field">
-          <span>עד גיל</span>
-          <input type="number" name="maxAge" />
+          <span>עובד ספציפי</span>
+          <select name="userId" defaultValue={rate?.userId || ""}>
+            <option value="">לא</option>
+            {workers.map((worker) => (
+              <option key={worker.id} value={worker.id}>
+                {worker.name}
+              </option>
+            ))}
+          </select>
         </label>
-      </div>
-      <label className="field">
-        <span>שכר לשעה</span>
-        <input type="number" step="0.1" name="hourlyRate" required />
-      </label>
-      <ErrorText error={error} />
-      <button className="btn" disabled={pending}>
-        שמירת תעריף
-      </button>
-    </form>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="field">
+            <span>מגיל</span>
+            <input type="number" name="minAge" defaultValue={rate?.minAge ?? ""} />
+          </label>
+          <label className="field">
+            <span>עד גיל</span>
+            <input type="number" name="maxAge" defaultValue={rate?.maxAge ?? ""} />
+          </label>
+        </div>
+        <label className="field">
+          <span>שכר לשעה</span>
+          <input type="number" step="0.1" name="hourlyRate" defaultValue={rate?.hourlyRate ?? ""} required />
+        </label>
+        {rate ? (
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="active" value="true" defaultChecked={rate.active} />
+            פעיל
+          </label>
+        ) : null}
+        <ErrorText error={error} />
+        <button className="btn" disabled={pending}>
+          {rate ? "עדכון תעריף" : "שמירת תעריף"}
+        </button>
+      </form>
+      {rate ? <DeleteRateButton id={rate.id} /> : null}
+    </div>
   );
 }
 
 export function DeleteRateButton({ id }: { id: string }) {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   return (
@@ -663,6 +697,7 @@ export function DeleteRateButton({ id }: { id: string }) {
         start(async () => {
           const result = await deletePayRateAction(formData);
           setError(result.ok ? "" : result.error);
+          if (result.ok) router.refresh();
         });
       }}
     >

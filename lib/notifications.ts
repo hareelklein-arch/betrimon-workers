@@ -102,6 +102,9 @@ export function notificationHref(item: { type: string; meta: string | null }, ro
   if (item.type === "shift_cancelled") {
     return home;
   }
+  if (item.type === "worker_pending") {
+    return "/manager/people?tab=workers";
+  }
   if (meta.shiftId) {
     return `/worker/shifts/${meta.shiftId}`;
   }
@@ -113,5 +116,6 @@ export function notificationCta(type: string) {
   if (type === "time_entry_rejected") return "לחצו לפרטי השיבוץ";
   if (type === "shift_cancelled") return "לחצו לשיבוצים";
   if (type === "shift_assigned") return "לחצו לפרטי השיבוץ";
+  if (type === "worker_pending") return "לחצו לאישור העובדים";
   return "לחצו לפתיחה";
 }

@@ -544,6 +544,7 @@ export async function upsertWorkerAction(formData: FormData) {
     email,
     role,
     active,
+    ...(id ? (active ? { pendingApproval: false } : {}) : { pendingApproval: false }),
     ...(password ? { passwordHash: await hashPassword(password) } : {}),
   };
   const user = id
@@ -563,6 +564,23 @@ export async function upsertWorkerAction(formData: FormData) {
   return { ok: true as const };
 }
 
+export async function approveWorkerAction(formData: FormData) {
+  const manager = await requireManager();
+  const id = formString(formData, "id");
+  if (!id) return { ok: false as const, error: "חסר מזהה." };
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) return { ok: false as const, error: "העובד לא נמצא." };
+  if (!user.pendingApproval) return { ok: false as const, error: "העובד כבר אושר." };
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { active: true, pendingApproval: false },
+  });
+  await writeAudit({ userId: manager.id, action: "approve", entity: "user", entityId: id, before: user, after: updated });
+  revalidateApp();
+  return { ok: true as const };
+}
+
 export async function upsertPayRateAction(formData: FormData) {
   const manager = await requireManager();
   const id = formString(formData, "id");
@@ -576,7 +594,10 @@ export async function upsertPayRateAction(formData: FormData) {
   }
 
   const row = id
-    ? await prisma.payRate.update({ where: { id }, data: { jobTypeId, userId, minAge, maxAge, hourlyRate, active: true } })
+    ? await prisma.payRate.update({
+        where: { id },
+        data: { jobTypeId, userId, minAge, maxAge, hourlyRate, active: formData.get("active") === "true" },
+      })
     : await prisma.payRate.create({ data: { jobTypeId, userId, minAge, maxAge, hourlyRate } });
 
   await writeAudit({ userId: manager.id, action: id ? "update" : "create", entity: "pay_rate", entityId: row.id, after: row });
