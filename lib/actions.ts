@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, requireManager, requireUser } from "@/lib/auth";
 import { hashPassword, validatePassword, validateUsername } from "@/lib/password";
 import { writeAudit } from "@/lib/audit";
-import { notifyUsers } from "@/lib/notifications";
+import { dismissWorkerPendingNotifications, notifyUsers } from "@/lib/notifications";
 import { assertPeriodOpen } from "@/lib/period";
 import { hoursBetween, rateForWorker } from "@/lib/payroll";
 import { shiftsOverlap } from "@/lib/youth";
@@ -560,6 +560,9 @@ export async function upsertWorkerAction(formData: FormData) {
   }
 
   await writeAudit({ userId: manager.id, action: id ? "update" : "create", entity: "user", entityId: user.id, after: user });
+  if (id && active) {
+    await dismissWorkerPendingNotifications(user.id);
+  }
   revalidateApp();
   return { ok: true as const };
 }
@@ -577,6 +580,7 @@ export async function approveWorkerAction(formData: FormData) {
     data: { active: true, pendingApproval: false },
   });
   await writeAudit({ userId: manager.id, action: "approve", entity: "user", entityId: id, before: user, after: updated });
+  await dismissWorkerPendingNotifications(id);
   revalidateApp();
   return { ok: true as const };
 }
@@ -670,6 +674,7 @@ export async function deleteWorkerAction(formData: FormData) {
   } catch (error) {
     console.error("deleteWorkerAction audit", error);
   }
+  await dismissWorkerPendingNotifications(id);
   revalidateApp();
   return { ok: true as const };
 }

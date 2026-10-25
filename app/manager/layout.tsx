@@ -2,6 +2,7 @@ import { requireManager } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
 import { prisma } from "@/lib/db";
 import { errorText, isNextControlFlow } from "@/lib/errors";
+import { dismissWorkerPendingNotifications } from "@/lib/notifications";
 
 const nav = [
   { href: "/manager", label: "שיבוץ" },
@@ -15,6 +16,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
     const user = await requireManager();
     let pendingWorkers = 0;
     try {
+      await dismissWorkerPendingNotifications();
       pendingWorkers = await prisma.user.count({ where: { pendingApproval: true } });
     } catch (error) {
       console.error("pendingWorkers", error);

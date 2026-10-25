@@ -77,11 +77,43 @@ export async function notifyUsers(params: {
 }
 
 export function parseNotificationMeta(meta: string | null) {
-  if (!meta) return {} as { shiftId?: string; swapRequestId?: string };
+  if (!meta) return {} as { shiftId?: string; swapRequestId?: string; userId?: string };
   try {
-    return JSON.parse(meta) as { shiftId?: string; swapRequestId?: string };
+    return JSON.parse(meta) as { shiftId?: string; swapRequestId?: string; userId?: string };
   } catch {
     return {};
+  }
+}
+
+export async function dismissWorkerPendingNotifications(workerUserId?: string) {
+  try {
+    const items = await prisma.notification.findMany({
+      where: { type: "worker_pending" },
+      select: { id: true, meta: true },
+    });
+    if (items.length === 0) return;
+
+    let ids: string[];
+    if (workerUserId) {
+      ids = items
+        .filter((item) => parseNotificationMeta(item.meta).userId === workerUserId)
+        .map((item) => item.id);
+    } else {
+      const pending = new Set(
+        (await prisma.user.findMany({ where: { pendingApproval: true }, select: { id: true } })).map((row) => row.id),
+      );
+      ids = items
+        .filter((item) => {
+          const relatedId = parseNotificationMeta(item.meta).userId;
+          return !relatedId || !pending.has(relatedId);
+        })
+        .map((item) => item.id);
+    }
+
+    if (ids.length === 0) return;
+    await prisma.notification.deleteMany({ where: { id: { in: ids } } });
+  } catch (error) {
+    console.error("dismissWorkerPendingNotifications", error);
   }
 }
 
