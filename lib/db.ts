@@ -15,9 +15,9 @@ function postgresPoolUrl(url: string) {
   if (!/[?&]sslmode=/i.test(base)) base = appendParam(base, "sslmode", "require");
   if (!/[?&]pool_timeout=/i.test(base)) base = appendParam(base, "pool_timeout", "20");
   if (/[?&]connection_limit=1(?:&|$)/i.test(base)) {
-    base = base.replace(/([?&]connection_limit=)1(?=&|$)/i, "$13");
+    base = base.replace(/([?&]connection_limit=)1(?=&|$)/i, "$15");
   } else if (!/[?&]connection_limit=/i.test(base)) {
-    base = appendParam(base, "connection_limit", "3");
+    base = appendParam(base, "connection_limit", "5");
   }
   return base + hash;
 }

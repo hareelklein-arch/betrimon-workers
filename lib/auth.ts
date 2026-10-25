@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -43,16 +44,22 @@ export async function getSession() {
   return getIronSession<{ user?: SessionUser }>(cookieStore, sessionOptions());
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const session = await getSession();
   if (!session.user) return null;
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { profile: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      role: true,
+      active: true,
+    },
   });
   if (!user || !user.active) return null;
   return user;
-}
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();

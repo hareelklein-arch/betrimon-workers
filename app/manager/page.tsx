@@ -30,12 +30,26 @@ export default async function ManagerSchedulePage({
     prisma.shift.findMany({
       where: {
         status: { not: "cancelled" },
-        OR: [{ workDate: { gte: from, lte: to } }, { startsAt: { gte: from, lte: to } }],
+        OR: [
+          { workDate: { gte: from, lte: to } },
+          { workDate: null, startsAt: { gte: from, lte: to } },
+        ],
       },
-      include: { user: true, site: true, jobType: true },
+      select: {
+        id: true,
+        userId: true,
+        trainee: true,
+        jobTypeId: true,
+        siteId: true,
+        workDate: true,
+        startsAt: true,
+        user: { select: { name: true } },
+        site: { select: { name: true } },
+        jobType: { select: { name: true } },
+      },
     }),
-    prisma.site.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.jobType.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.site.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.jobType.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.user.findMany({
       where: { role: "worker", active: true },
       orderBy: { name: "asc" },

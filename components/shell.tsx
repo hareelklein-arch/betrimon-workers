@@ -1,29 +1,24 @@
 import Link from "next/link";
 import { logoutAction } from "@/lib/auth-actions";
-import { unreadCount } from "@/lib/unread";
 import { ROLE_LABELS } from "@/lib/format";
 import { PushToggle } from "@/components/push-toggle";
 import { SetupNudge } from "@/components/setup-nudge";
 
 type NavItem = { href: string; label: string };
 
-export async function AppShell({
+export function AppShell({
   user,
   nav,
   children,
   pendingWorkers = 0,
+  unread = 0,
 }: {
   user: { id: string; name: string; role: string };
   nav: NavItem[];
   children: React.ReactNode;
   pendingWorkers?: number;
+  unread?: number;
 }) {
-  let unread = 0;
-  try {
-    unread = await unreadCount(user.id);
-  } catch (error) {
-    console.error("unreadCount", error);
-  }
   const home = user.role === "manager" ? "/manager" : "/worker";
   const notificationsHref = user.role === "manager" ? "/manager/notifications" : "/worker/notifications";
 

@@ -87,28 +87,28 @@ export function parseNotificationMeta(meta: string | null) {
 
 export async function dismissWorkerPendingNotifications(workerUserId?: string) {
   try {
+    if (workerUserId) {
+      await prisma.notification.deleteMany({
+        where: { type: "worker_pending", meta: { contains: workerUserId } },
+      });
+      return;
+    }
+
     const items = await prisma.notification.findMany({
       where: { type: "worker_pending" },
       select: { id: true, meta: true },
     });
     if (items.length === 0) return;
 
-    let ids: string[];
-    if (workerUserId) {
-      ids = items
-        .filter((item) => parseNotificationMeta(item.meta).userId === workerUserId)
-        .map((item) => item.id);
-    } else {
-      const pending = new Set(
-        (await prisma.user.findMany({ where: { pendingApproval: true }, select: { id: true } })).map((row) => row.id),
-      );
-      ids = items
-        .filter((item) => {
-          const relatedId = parseNotificationMeta(item.meta).userId;
-          return !relatedId || !pending.has(relatedId);
-        })
-        .map((item) => item.id);
-    }
+    const pending = new Set(
+      (await prisma.user.findMany({ where: { pendingApproval: true }, select: { id: true } })).map((row) => row.id),
+    );
+    const ids = items
+      .filter((item) => {
+        const relatedId = parseNotificationMeta(item.meta).userId;
+        return !relatedId || !pending.has(relatedId);
+      })
+      .map((item) => item.id);
 
     if (ids.length === 0) return;
     await prisma.notification.deleteMany({ where: { id: { in: ids } } });

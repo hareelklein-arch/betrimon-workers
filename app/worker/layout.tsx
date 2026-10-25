@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
 import { errorText, isNextControlFlow } from "@/lib/errors";
+import { unreadCount } from "@/lib/unread";
 
 const nav = [
   { href: "/worker", label: "שלי" },
@@ -13,6 +14,10 @@ const nav = [
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
   try {
     const user = await requireUser();
+    const unread = await unreadCount(user.id).catch((error) => {
+      console.error("unreadCount", error);
+      return 0;
+    });
     if (user.role === "manager") {
       return (
         <AppShell
@@ -22,13 +27,14 @@ export default async function WorkerLayout({ children }: { children: React.React
             { href: "/worker", label: "מבט עובד" },
             ...nav.slice(1),
           ]}
+          unread={unread}
         >
           {children}
         </AppShell>
       );
     }
 
-    return <AppShell user={user} nav={nav}>{children}</AppShell>;
+    return <AppShell user={user} nav={nav} unread={unread}>{children}</AppShell>;
   } catch (error) {
     if (isNextControlFlow(error)) throw error;
     return (

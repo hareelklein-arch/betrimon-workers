@@ -35,6 +35,8 @@ model User {
   personalRates     PayRate[]
   chatMessages      DateChatMessage[]
 
+  @@index([role, active])
+  @@index([pendingApproval])
   @@map("users")
 }
 
@@ -106,6 +108,9 @@ model Shift {
   swapRequests SwapRequest[]
   timeEntries  TimeEntry[]
 
+  @@index([workDate, status])
+  @@index([userId, status])
+  @@index([startsAt])
   @@map("shifts")
 }
 
@@ -162,6 +167,7 @@ model Notification {
   createdAt DateTime  @default(now()) @map("created_at")
   meta      String?
 
+  @@index([userId, readAt])
   @@map("notifications")
 }
 
