@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { ShiftForm } from "@/components/manager-forms";
 import { ScheduleImportForm } from "@/components/schedule-import";
 import { cancelShiftsAction } from "@/lib/actions";
@@ -119,8 +119,7 @@ export function MonthBoard({
   workers: { id: string; name: string }[];
 }) {
   const today = toDateInput(new Date());
-  const inThisMonth = today.startsWith(`${year}-${String(month).padStart(2, "0")}`);
-  const [selected, setSelected] = useState(inThisMonth ? today : toDateInput(new Date(year, month - 1, 1)));
+  const [openDate, setOpenDate] = useState<string | null>(null);
   const cells = useMemo(() => cellsForMonth(year, month), [year, month]);
   const byDate = useMemo(() => {
     const map = new Map<string, BoardShift[]>();
@@ -134,8 +133,22 @@ export function MonthBoard({
 
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
-  const selectedDate = new Date(`${selected}T00:00:00`);
-  const selectedGroups = groupsOnDay(byDate.get(selected) ?? []);
+  const openDateObj = openDate ? new Date(`${openDate}T00:00:00`) : null;
+  const openGroups = openDate ? groupsOnDay(byDate.get(openDate) ?? []) : [];
+
+  useEffect(() => {
+    if (!openDate) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenDate(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [openDate]);
 
   return (
     <div className="grid gap-4">
@@ -163,15 +176,17 @@ export function MonthBoard({
           {cells.map((date, index) => {
             if (!date) return <div key={`empty-${index}`} />;
             const groups = groupsOnDay(byDate.get(date) ?? []);
-            const isSelected = date === selected;
+            const isOpen = date === openDate;
             const isToday = date === today;
             return (
               <button
                 key={date}
                 type="button"
-                onClick={() => setSelected(date)}
+                onClick={() => setOpenDate(date)}
+                aria-haspopup="dialog"
+                aria-expanded={isOpen}
                 className={`min-h-16 rounded-xl border p-1 text-right sm:min-h-24 ${
-                  isSelected ? "border-[var(--primary)] bg-[#e7f3ea]" : "border-[var(--line)] bg-white"
+                  isOpen ? "border-[var(--primary)] bg-[#e7f3ea]" : "border-[var(--line)] bg-white"
                 }`}
               >
                 <span className={`text-sm ${isToday ? "font-black text-[var(--primary)]" : "font-bold"}`}>
@@ -190,34 +205,61 @@ export function MonthBoard({
           })}
         </div>
       </div>
+      <p className="text-sm text-[var(--muted)]">לחצו על יום בלוח כדי לשבץ עבודה.</p>
 
-      <section className="grid gap-3">
-        <h3 className="text-lg font-extrabold">{formatDate(selectedDate)}</h3>
-        {selectedGroups.length === 0 ? (
-          <p className="text-[var(--muted)]">אין שיבוצים ביום הזה. פותחים עבודה חדשה למטה.</p>
-        ) : (
-          selectedGroups.map((group) => (
-            <article key={`${group.jobTypeId}-${group.siteId}`} className="card p-4">
-              <p className="font-extrabold">
-                {group.jobName} · {group.siteName}
-              </p>
-              <p className="mt-1 text-sm">{group.workers.map(workerName).join(" · ")}</p>
-              <div className="mt-3">
-                <CancelGroupButton ids={group.workers.map((worker) => worker.shiftId)} />
+      {openDate && openDateObj ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="סגירת חלון השיבוץ"
+            onClick={() => setOpenDate(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="day-assign-title"
+            className="relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-[var(--line)] bg-[var(--card)] pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+              <div>
+                <p className="text-xs text-[var(--muted)]">שיבוץ ליום</p>
+                <h3 id="day-assign-title" className="text-xl font-black">
+                  {formatDate(openDateObj)}
+                </h3>
               </div>
-            </article>
-          ))
-        )}
-        <ShiftForm
-          key={selected}
-          sites={sites}
-          jobs={jobs}
-          workers={workers}
-          workDate={selected}
-          dateLabel={formatDate(selectedDate)}
-          occupied={selectedGroups.map((group) => ({ jobTypeId: group.jobTypeId, siteId: group.siteId }))}
-        />
-      </section>
+              <button type="button" className="btn btn-secondary px-3" onClick={() => setOpenDate(null)}>
+                סגירה
+              </button>
+            </div>
+            <div className="grid gap-3 overflow-y-auto p-4">
+              {openGroups.length === 0 ? (
+                <p className="text-[var(--muted)]">אין שיבוצים ביום הזה עדיין. בחרו עבודה ועובדים ולחצו שיבוץ.</p>
+              ) : (
+                openGroups.map((group) => (
+                  <article key={`${group.jobTypeId}-${group.siteId}`} className="rounded-2xl border border-[var(--line)] bg-white p-4">
+                    <p className="font-extrabold">
+                      {group.jobName} · {group.siteName}
+                    </p>
+                    <p className="mt-1 text-sm">{group.workers.map(workerName).join(" · ")}</p>
+                    <div className="mt-3">
+                      <CancelGroupButton ids={group.workers.map((worker) => worker.shiftId)} />
+                    </div>
+                  </article>
+                ))
+              )}
+              <ShiftForm
+                key={openDate}
+                sites={sites}
+                jobs={jobs}
+                workers={workers}
+                workDate={openDate}
+                occupied={openGroups.map((group) => ({ jobTypeId: group.jobTypeId, siteId: group.siteId }))}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

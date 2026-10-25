@@ -175,7 +175,7 @@ export function ShiftForm({
 
   return (
     <form
-      className="card grid gap-3 p-4"
+      className="grid gap-3"
       action={(formData) => {
         if (pending) return;
         start(async () => {
@@ -388,7 +388,7 @@ export function ShiftForm({
           יש רק {selected.length} עובדים פנויים.
         </p>
       ) : null}
-      <button className="btn" disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}>
+      <button className="btn w-full" disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}>
         שיבוץ
       </button>
     </form>
@@ -572,9 +572,13 @@ export function DeleteWorkerButton({ id, name }: { id: string; name: string }) {
       action={(formData) => {
         if (!window.confirm(`למחוק את ${name}? השיבוצים והדיווחים שלו יימחקו.`)) return;
         start(async () => {
-          const result = await deleteWorkerAction(formData);
-          setError(result.ok ? "" : result.error);
-          if (result.ok) router.refresh();
+          try {
+            const result = await deleteWorkerAction(formData);
+            setError(result.ok ? "" : result.error);
+            if (result.ok) router.refresh();
+          } catch (error) {
+            setError(error instanceof Error ? error.message : "מחיקה נכשלה.");
+          }
         });
       }}
     >

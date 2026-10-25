@@ -15,6 +15,7 @@ import { assignShiftsForJob } from "@/lib/assign-shifts";
 import { closeChatIfWorkDone } from "@/lib/chat";
 import { matchNamed, readScheduleFile } from "@/lib/schedule-import";
 import { canRequestSwap, combineDateAndTime, dateKey, isFutureShift, parseDateKey, shiftDateKey, shiftDay, swapExpiresAt } from "@/lib/shift";
+import { errorText } from "@/lib/errors";
 
 function formString(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -611,19 +612,34 @@ export async function deleteWorkerAction(formData: FormData) {
     }
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.shift.updateMany({ where: { createdById: id }, data: { createdById: manager.id } });
-    await tx.timeEntry.updateMany({ where: { reviewedById: id }, data: { reviewedById: null } });
-    await tx.timeEntry.deleteMany({ where: { userId: id } });
-    await tx.swapRequest.deleteMany({ where: { requesterId: id } });
-    await tx.swapRequest.updateMany({ where: { takerId: id }, data: { takerId: null } });
-    await tx.auditLog.updateMany({ where: { userId: id }, data: { userId: null } });
-    await tx.payrollPeriod.updateMany({ where: { lockedById: id }, data: { lockedById: null } });
-    await tx.shift.deleteMany({ where: { userId: id } });
-    await tx.user.delete({ where: { id } });
-  });
+  try {
+    await prisma.$transaction([
+      prisma.shift.updateMany({ where: { createdById: id }, data: { createdById: manager.id } }),
+      prisma.timeEntry.updateMany({ where: { reviewedById: id }, data: { reviewedById: null } }),
+      prisma.timeEntry.deleteMany({ where: { OR: [{ userId: id }, { shift: { userId: id } }] } }),
+      prisma.swapRequest.deleteMany({
+        where: { OR: [{ requesterId: id }, { takerId: id }, { shift: { userId: id } }] },
+      }),
+      prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } }),
+      prisma.payrollPeriod.updateMany({ where: { lockedById: id }, data: { lockedById: null } }),
+      prisma.notification.deleteMany({ where: { userId: id } }),
+      prisma.pushSubscription.deleteMany({ where: { userId: id } }),
+      prisma.payRate.deleteMany({ where: { userId: id } }),
+      prisma.dateChatMessage.deleteMany({ where: { userId: id } }),
+      prisma.workerProfile.deleteMany({ where: { userId: id } }),
+      prisma.shift.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+  } catch (error) {
+    console.error("deleteWorkerAction", error);
+    return { ok: false as const, error: `לא הצלחנו למחוק את העובד.\n${errorText(error)}` };
+  }
 
-  await writeAudit({ userId: manager.id, action: "delete", entity: "user", entityId: id, before: user });
+  try {
+    await writeAudit({ userId: manager.id, action: "delete", entity: "user", entityId: id, before: user });
+  } catch (error) {
+    console.error("deleteWorkerAction audit", error);
+  }
   revalidateApp();
   return { ok: true as const };
 }
@@ -634,26 +650,34 @@ export async function deleteNamedItemAction(formData: FormData) {
   const id = formString(formData, "id");
   if (!id) return { ok: false as const, error: "חסר מזהה." };
 
-  if (kind === "site") {
-    const before = await prisma.site.findUnique({ where: { id } });
-    if (!before) return { ok: false as const, error: "המקום לא נמצא." };
-    await prisma.$transaction(async (tx) => {
-      await tx.timeEntry.deleteMany({ where: { siteId: id } });
-      await tx.shift.deleteMany({ where: { siteId: id } });
-      await tx.site.delete({ where: { id } });
-    });
-    await writeAudit({ userId: manager.id, action: "delete", entity: "site", entityId: id, before });
-  } else if (kind === "job") {
-    const before = await prisma.jobType.findUnique({ where: { id } });
-    if (!before) return { ok: false as const, error: "סוג העבודה לא נמצא." };
-    await prisma.$transaction(async (tx) => {
-      await tx.timeEntry.deleteMany({ where: { jobTypeId: id } });
-      await tx.shift.deleteMany({ where: { jobTypeId: id } });
-      await tx.jobType.delete({ where: { id } });
-    });
-    await writeAudit({ userId: manager.id, action: "delete", entity: "job_type", entityId: id, before });
-  } else {
-    return { ok: false as const, error: "סוג לא מוכר." };
+  try {
+    if (kind === "site") {
+      const before = await prisma.site.findUnique({ where: { id } });
+      if (!before) return { ok: false as const, error: "המקום לא נמצא." };
+      await prisma.$transaction([
+        prisma.swapRequest.deleteMany({ where: { shift: { siteId: id } } }),
+        prisma.timeEntry.deleteMany({ where: { siteId: id } }),
+        prisma.shift.deleteMany({ where: { siteId: id } }),
+        prisma.site.delete({ where: { id } }),
+      ]);
+      await writeAudit({ userId: manager.id, action: "delete", entity: "site", entityId: id, before });
+    } else if (kind === "job") {
+      const before = await prisma.jobType.findUnique({ where: { id } });
+      if (!before) return { ok: false as const, error: "סוג העבודה לא נמצא." };
+      await prisma.$transaction([
+        prisma.payRate.updateMany({ where: { jobTypeId: id }, data: { jobTypeId: null } }),
+        prisma.swapRequest.deleteMany({ where: { shift: { jobTypeId: id } } }),
+        prisma.timeEntry.deleteMany({ where: { jobTypeId: id } }),
+        prisma.shift.deleteMany({ where: { jobTypeId: id } }),
+        prisma.jobType.delete({ where: { id } }),
+      ]);
+      await writeAudit({ userId: manager.id, action: "delete", entity: "job_type", entityId: id, before });
+    } else {
+      return { ok: false as const, error: "סוג לא מוכר." };
+    }
+  } catch (error) {
+    console.error("deleteNamedItemAction", error);
+    return { ok: false as const, error: `לא הצלחנו למחוק.\n${errorText(error)}` };
   }
 
   revalidateApp();
