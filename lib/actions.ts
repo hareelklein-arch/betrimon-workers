@@ -14,8 +14,9 @@ import { workersRankedByLeastWork } from "@/lib/queries";
 import { assignShiftsForJob } from "@/lib/assign-shifts";
 import { closeChatIfWorkDone } from "@/lib/chat";
 import { matchNamed, readScheduleFile } from "@/lib/schedule-import";
-import { canRequestSwap, combineDateAndTime, dateKey, isFutureShift, parseDateKey, shiftDateKey, shiftDay, swapExpiresAt } from "@/lib/shift";
+import { canRequestSwap, combineDateAndTime, dateKey, isFutureShift, parseDateKey, prismaShiftsOnDay, shiftDateKey, swapExpiresAt } from "@/lib/shift";
 import { errorText } from "@/lib/errors";
+import { afterResponse } from "@/lib/background";
 
 function formString(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -28,7 +29,8 @@ function parseDateInput(value: string) {
 }
 
 function revalidateApp() {
-  revalidatePath("/", "layout");
+  revalidatePath("/manager");
+  revalidatePath("/worker");
 }
 
 
@@ -85,7 +87,7 @@ export async function submitTimeEntryAction(formData: FormData) {
   }
 
   await writeAudit({ userId: user.id, action: "submit", entity: "time_entry", entityId: entry.id, after: entry });
-  await closeChatIfWorkDone(dateKey(workDate));
+  afterResponse(() => closeChatIfWorkDone(dateKey(workDate)));
   revalidateApp();
   return { ok: true as const };
 }
@@ -124,13 +126,15 @@ export async function reviewTimeEntryAction(formData: FormData) {
       },
     });
     await writeAudit({ userId: manager.id, action: "reject", entity: "time_entry", entityId: id, before: entry, after: updated });
-    await notifyUsers({
-      userIds: [entry.userId],
-      type: "time_entry_rejected",
-      title: "דיווח נדחה",
-      body: `${manager.name} דחה דיווח שעות. ${rejectionReason || ""}`.trim(),
-      meta: { shiftId: entry.shiftId },
-    });
+    afterResponse(() =>
+      notifyUsers({
+        userIds: [entry.userId],
+        type: "time_entry_rejected",
+        title: "דיווח נדחה",
+        body: `${manager.name} דחה דיווח שעות. ${rejectionReason || ""}`.trim(),
+        meta: { shiftId: entry.shiftId },
+      }),
+    );
   } else {
     return { ok: false as const, error: "החלטה לא תקינה." };
   }
@@ -145,8 +149,11 @@ async function overlappingShift(userId: string, startsAt: Date | null, endsAt: D
     where: {
       userId,
       status: { not: "cancelled" },
+      startsAt: { lt: endsAt },
+      endsAt: { gt: startsAt },
       ...(ignoreId ? { id: { not: ignoreId } } : {}),
     },
+    select: { id: true, startsAt: true, endsAt: true, workDate: true },
   });
   return existing.find((shift) => shiftsOverlap({ startsAt, endsAt }, shift));
 }
@@ -186,12 +193,10 @@ export async function createShiftAction(formData: FormData) {
   }
 
   const alreadyAssigned = await prisma.shift.findMany({
-    where: { jobTypeId, siteId, status: { not: "cancelled" }, trainee: false },
-    select: { userId: true, workDate: true, startsAt: true },
+    where: { jobTypeId, siteId, trainee: false, ...prismaShiftsOnDay(startOfDay(workDate)) },
+    select: { userId: true },
   });
-  const alreadyIds = new Set(
-    alreadyAssigned.filter((shift) => dateKey(shiftDay(shift)) === dateKey(startOfDay(workDate))).map((shift) => shift.userId),
-  );
+  const alreadyIds = new Set(alreadyAssigned.map((shift) => shift.userId));
   const newWorkerIds = uniqueWorkerIds.filter((id) => !alreadyIds.has(id));
   if (alreadyIds.size + newWorkerIds.length > 4) {
     return { ok: false as const, error: "בעבודה הזו כבר יש מספיק עובדים. מקסימום 4." };
@@ -355,25 +360,39 @@ export async function cancelShiftsAction(formData: FormData) {
   if (ids.length === 0) return { ok: false as const, error: "לא נבחרו משמרות." };
 
   try {
-    for (const id of ids) {
-      const before = await prisma.shift.findUnique({ where: { id }, include: { jobType: true, site: true } });
-      if (!before || before.status === "cancelled") continue;
-      await prisma.shift.update({ where: { id }, data: { status: "cancelled" } });
-      try {
-        await prisma.swapRequest.updateMany({ where: { shiftId: id, status: "open" }, data: { status: "cancelled" } });
-      } catch (error) {
-        console.error("cancelShiftsAction swaps", error);
-      }
-      await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: id, before });
-      await notifyUsers({
-        userIds: [before.userId],
-        type: "shift_cancelled",
-        title: "משמרת בוטלה",
-        body: `${before.jobType.name} ב${before.site.name} בוטלה.`,
-        meta: { shiftId: id },
-      });
-      await closeChatIfWorkDone(shiftDateKey(before));
-    }
+    const shifts = await prisma.shift.findMany({
+      where: { id: { in: ids }, status: { not: "cancelled" } },
+      select: {
+        id: true,
+        userId: true,
+        workDate: true,
+        startsAt: true,
+        jobType: { select: { name: true } },
+        site: { select: { name: true } },
+      },
+    });
+    if (shifts.length === 0) return { ok: true as const };
+    const shiftIds = shifts.map((shift) => shift.id);
+    await prisma.shift.updateMany({ where: { id: { in: shiftIds } }, data: { status: "cancelled" } });
+    await prisma.swapRequest.updateMany({ where: { shiftId: { in: shiftIds }, status: "open" }, data: { status: "cancelled" } }).catch((error) => {
+      console.error("cancelShiftsAction swaps", error);
+    });
+    const chatKeys = [...new Set(shifts.map((shift) => shiftDateKey(shift)))];
+    afterResponse(async () => {
+      await Promise.all(
+        shifts.map(async (shift) => {
+          await writeAudit({ userId: manager.id, action: "cancel", entity: "shift", entityId: shift.id, before: shift });
+          await notifyUsers({
+            userIds: [shift.userId],
+            type: "shift_cancelled",
+            title: "משמרת בוטלה",
+            body: `${shift.jobType.name} ב${shift.site.name} בוטלה.`,
+            meta: { shiftId: shift.id },
+          });
+        }),
+      );
+      await Promise.all(chatKeys.map((key) => closeChatIfWorkDone(key)));
+    });
   } catch (error) {
     console.error("cancelShiftsAction", error);
     return { ok: false as const, error: `לא הצלחנו לבטל את השיבוץ.\n${errorText(error)}` };
@@ -413,13 +432,15 @@ export async function requestSwapAction(formData: FormData) {
     select: { id: true },
   });
 
-  await notifyUsers({
-    userIds: others.map((row) => row.id),
-    type: "swap_requested",
-    title: "בקשת החלפה",
-    body: `${user.name} מבקש/ת החלפה: ${shift.jobType.name} ב${shift.site.name}`,
-    meta: { swapRequestId: request.id },
-  });
+  afterResponse(() =>
+    notifyUsers({
+      userIds: others.map((row) => row.id),
+      type: "swap_requested",
+      title: "בקשת החלפה",
+      body: `${user.name} מבקש/ת החלפה: ${shift.jobType.name} ב${shift.site.name}`,
+      meta: { swapRequestId: request.id },
+    }),
+  );
 
   revalidateApp();
   return { ok: true as const };
@@ -459,13 +480,15 @@ export async function takeSwapAction(formData: FormData) {
     }),
   ]);
 
-  await notifyUsers({
-    userIds: [request.requesterId],
-    type: "swap_taken",
-    title: "ההחלפה בוצעה",
-    body: `${user.name} לקח/ה את המשמרת במקומכם.`,
-    meta: { swapRequestId: request.id, takerId: user.id },
-  });
+  afterResponse(() =>
+    notifyUsers({
+      userIds: [request.requesterId],
+      type: "swap_taken",
+      title: "ההחלפה בוצעה",
+      body: `${user.name} לקח/ה את המשמרת במקומכם.`,
+      meta: { swapRequestId: request.id, takerId: user.id },
+    }),
+  );
 
   revalidateApp();
   return { ok: true as const };
@@ -561,7 +584,7 @@ export async function upsertWorkerAction(formData: FormData) {
 
   await writeAudit({ userId: manager.id, action: id ? "update" : "create", entity: "user", entityId: user.id, after: user });
   if (id && active) {
-    await dismissWorkerPendingNotifications(user.id);
+    afterResponse(() => dismissWorkerPendingNotifications(user.id));
   }
   revalidateApp();
   return { ok: true as const };
@@ -580,7 +603,7 @@ export async function approveWorkerAction(formData: FormData) {
     data: { active: true, pendingApproval: false },
   });
   await writeAudit({ userId: manager.id, action: "approve", entity: "user", entityId: id, before: user, after: updated });
-  await dismissWorkerPendingNotifications(id);
+  afterResponse(() => dismissWorkerPendingNotifications(id));
   revalidateApp();
   return { ok: true as const };
 }
@@ -674,7 +697,7 @@ export async function deleteWorkerAction(formData: FormData) {
   } catch (error) {
     console.error("deleteWorkerAction audit", error);
   }
-  await dismissWorkerPendingNotifications(id);
+  afterResponse(() => dismissWorkerPendingNotifications(id));
   revalidateApp();
   return { ok: true as const };
 }
@@ -761,10 +784,13 @@ export async function markNotificationsReadAction() {
 
 export async function canAccessDateChat(userId: string, role: string, workDateKey: string) {
   if (role === "manager") return true;
-  const shifts = await prisma.shift.findMany({
-    where: { userId, status: { not: "cancelled" } },
+  const day = parseDateKey(workDateKey);
+  if (!day) return false;
+  const shift = await prisma.shift.findFirst({
+    where: { userId, ...prismaShiftsOnDay(day) },
+    select: { id: true },
   });
-  return shifts.some((shift) => shiftDateKey(shift) === workDateKey);
+  return Boolean(shift);
 }
 
 export async function sendDateChatAction(formData: FormData) {

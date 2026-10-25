@@ -8,19 +8,31 @@ import { usePathname, useSearchParams } from "next/navigation";
 let waiting = false;
 const listeners = new Set<() => void>();
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
+let showTimer: ReturnType<typeof setTimeout> | null = null;
 
 function emit() {
   listeners.forEach((listener) => listener());
 }
 
 export function beginWait() {
-  waiting = true;
-  if (hideTimer) clearTimeout(hideTimer);
-  hideTimer = setTimeout(endWait, 20000);
-  emit();
+  if (waiting || showTimer) return;
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  showTimer = setTimeout(() => {
+    showTimer = null;
+    waiting = true;
+    hideTimer = setTimeout(endWait, 20000);
+    emit();
+  }, 280);
 }
 
 export function endWait() {
+  if (showTimer) {
+    clearTimeout(showTimer);
+    showTimer = null;
+  }
   waiting = false;
   if (hideTimer) {
     clearTimeout(hideTimer);

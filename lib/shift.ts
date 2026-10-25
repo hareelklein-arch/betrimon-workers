@@ -81,6 +81,28 @@ export function shiftWasReported(entries: { status: string }[]) {
   return entries.some((entry) => entry.status === "submitted" || entry.status === "approved");
 }
 
+export function nextDay(value: Date) {
+  const next = startOfDay(value);
+  next.setDate(next.getDate() + 1);
+  return next;
+}
+
+export function prismaShiftsOnDay(day: Date) {
+  const from = startOfDay(day);
+  const to = nextDay(from);
+  return {
+    status: { not: "cancelled" as const },
+    OR: [{ workDate: from }, { workDate: null, startsAt: { gte: from, lt: to } }],
+  };
+}
+
+export function prismaShiftsInRange(from: Date, to: Date) {
+  return {
+    status: { not: "cancelled" as const },
+    OR: [{ workDate: { gte: from, lte: to } }, { workDate: null, startsAt: { gte: from, lte: to } }],
+  };
+}
+
 export function uniqueAssignments<T extends Timed & { userId: string; jobTypeId: string; siteId: string }>(shifts: T[]) {
   const seen = new Set<string>();
   return shifts.filter((shift) => {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import webpush from "web-push";
+import { afterResponse } from "@/lib/background";
 
 function pushConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -24,28 +25,32 @@ export async function notifyUsers(params: {
   if (params.userIds.length === 0) return;
 
   try {
-  const created = await prisma.$transaction(
-    params.userIds.map((userId) =>
-      prisma.notification.create({
-        data: {
-          userId,
-          type: params.type,
-          title: params.title,
-          body: params.body,
-          meta: params.meta ? JSON.stringify(params.meta) : null,
-        },
-      }),
-    ),
-  );
-  const idByUser = new Map(created.map((item) => [item.userId, item.id]));
+    const meta = params.meta ? JSON.stringify(params.meta) : null;
+    const created = await prisma.notification.createManyAndReturn({
+      data: params.userIds.map((userId) => ({
+        userId,
+        type: params.type,
+        title: params.title,
+        body: params.body,
+        meta,
+      })),
+    });
+    const idByUser = new Map(created.map((item) => [item.userId, item.id]));
+    afterResponse(() => sendPushNotifications(params, idByUser));
+  } catch (error) {
+    console.error("notifyUsers", error);
+  }
+}
 
+async function sendPushNotifications(
+  params: { userIds: string[]; type: string; title: string; body: string; meta?: unknown },
+  idByUser: Map<string, string>,
+) {
   if (!pushConfigured()) return;
   configurePush();
-
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId: { in: params.userIds } },
   });
-
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {
@@ -71,9 +76,6 @@ export async function notifyUsers(params: {
       }
     }),
   );
-  } catch (error) {
-    console.error("notifyUsers", error);
-  }
 }
 
 export function parseNotificationMeta(meta: string | null) {

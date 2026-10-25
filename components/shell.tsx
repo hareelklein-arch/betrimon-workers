@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BottomNav } from "@/components/bottom-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { ROLE_LABELS } from "@/lib/format";
 import { SetupNudge } from "@/components/setup-nudge";
@@ -40,18 +41,7 @@ export function AppShell({
       <SetupNudge />
       {banner}
       <main>{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--line)] bg-[var(--card)]/95 backdrop-blur">
-        <div
-          className="mx-auto grid max-w-5xl gap-1 px-2 py-2"
-          style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
-        >
-          {nav.map((item) => (
-            <Link key={item.href} href={item.href} data-wait className="btn btn-secondary px-2 text-xs sm:text-sm">
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <BottomNav items={nav} />
     </div>
   );
 }

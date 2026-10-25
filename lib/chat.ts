@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db";
-import { shiftDateKey, shiftWasReported } from "@/lib/shift";
+import { parseDateKey, prismaShiftsOnDay, shiftWasReported } from "@/lib/shift";
 
 export async function dateChatFinished(workDateKey: string) {
+  const day = parseDateKey(workDateKey);
+  if (!day) return false;
   const shifts = await prisma.shift.findMany({
-    where: { status: { not: "cancelled" } },
-    include: { timeEntries: { select: { status: true } } },
+    where: prismaShiftsOnDay(day),
+    select: { timeEntries: { select: { status: true } } },
   });
-  const onDate = shifts.filter((shift) => shiftDateKey(shift) === workDateKey);
-  return dateWorkIsFinished(onDate);
+  return dateWorkIsFinished(shifts);
 }
 
 export async function closeChatIfWorkDone(workDateKey: string) {

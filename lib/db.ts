@@ -14,10 +14,10 @@ function postgresPoolUrl(url: string) {
   if (!/[?&]pgbouncer=/i.test(base)) base = appendParam(base, "pgbouncer", "true");
   if (!/[?&]sslmode=/i.test(base)) base = appendParam(base, "sslmode", "require");
   if (!/[?&]pool_timeout=/i.test(base)) base = appendParam(base, "pool_timeout", "20");
-  if (/[?&]connection_limit=1(?:&|$)/i.test(base)) {
-    base = base.replace(/([?&]connection_limit=)1(?=&|$)/i, "$15");
+  if (/[?&]connection_limit=(?:1|5)(?:&|$)/i.test(base)) {
+    base = base.replace(/([?&]connection_limit=)(?:1|5)(?=&|$)/i, "$110");
   } else if (!/[?&]connection_limit=/i.test(base)) {
-    base = appendParam(base, "connection_limit", "5");
+    base = appendParam(base, "connection_limit", "10");
   }
   return base + hash;
 }

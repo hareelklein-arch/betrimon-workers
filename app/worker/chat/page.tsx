@@ -2,15 +2,28 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { EmptyState, PageTitle } from "@/components/shell";
-import { formatDate } from "@/lib/format";
+import { formatDate, startOfDay } from "@/lib/format";
 import { dateWorkIsFinished } from "@/lib/chat";
-import { parseDateKey, shiftDateKey, shiftDay } from "@/lib/shift";
+import { parseDateKey, prismaShiftsInRange, shiftDateKey, shiftDay } from "@/lib/shift";
 
 export default async function ChatListPage() {
   const user = await requireUser();
+  const from = startOfDay(new Date());
+  from.setDate(from.getDate() - 21);
+  const to = startOfDay(new Date());
+  to.setDate(to.getDate() + 60);
+
   const shifts = await prisma.shift.findMany({
-    where: { status: { not: "cancelled" } },
-    include: { user: true, site: true, timeEntries: { select: { status: true } } },
+    where: prismaShiftsInRange(from, to),
+    select: {
+      id: true,
+      userId: true,
+      workDate: true,
+      startsAt: true,
+      user: { select: { name: true } },
+      site: { select: { name: true } },
+      timeEntries: { select: { status: true } },
+    },
     orderBy: [{ workDate: "asc" }, { startsAt: "asc" }],
   });
 
@@ -28,22 +41,19 @@ export default async function ChatListPage() {
     row.shifts.push(shift);
     grouped.set(key, row);
   }
-  const finishedKeys: string[] = [];
   for (const [key, row] of grouped) {
-    if (dateWorkIsFinished(row.shifts)) {
-      grouped.delete(key);
-      finishedKeys.push(key);
-    }
-  }
-  if (finishedKeys.length > 0) {
-    await prisma.dateChatMessage.deleteMany({ where: { workDateKey: { in: finishedKeys } } });
+    if (dateWorkIsFinished(row.shifts)) grouped.delete(key);
   }
 
   const keys = [...grouped.keys()].sort();
-  const lastMessages = await prisma.dateChatMessage.findMany({
-    where: { workDateKey: { in: keys } },
-    orderBy: { createdAt: "desc" },
-  });
+  const lastMessages =
+    keys.length === 0
+      ? []
+      : await prisma.dateChatMessage.findMany({
+          where: { workDateKey: { in: keys } },
+          orderBy: { createdAt: "desc" },
+          select: { workDateKey: true, body: true },
+        });
   const lastByDate = new Map<string, string>();
   for (const message of lastMessages) {
     if (!lastByDate.has(message.workDateKey)) {

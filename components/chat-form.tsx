@@ -8,7 +8,7 @@ import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
 export function ChatRefresh() {
   const router = useRouter();
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), 6000);
+    const id = setInterval(() => router.refresh(), 20000);
     return () => clearInterval(id);
   }, [router]);
   return null;

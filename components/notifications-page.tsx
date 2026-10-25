@@ -2,11 +2,12 @@ import { prisma } from "@/lib/db";
 import { MarkAllReadButton } from "@/components/forms";
 import { PushToggle } from "@/components/push-toggle";
 import { EmptyState, PageTitle } from "@/components/shell";
+import { afterResponse } from "@/lib/background";
 import { formatDateTime } from "@/lib/format";
 import { dismissWorkerPendingNotifications, notificationCta } from "@/lib/notifications";
 
 export async function NotificationsView({ userId }: { userId: string }) {
-  await dismissWorkerPendingNotifications();
+  afterResponse(() => dismissWorkerPendingNotifications());
   const items = await prisma.notification.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },

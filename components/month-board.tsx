@@ -19,6 +19,9 @@ export type BoardShift = {
   siteId: string;
   siteName: string;
   date: string;
+  workDate?: Date | string | null;
+  startsAt?: Date | string | null;
+  endsAt?: Date | string | null;
 };
 
 const WEEKDAYS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
@@ -119,6 +122,8 @@ export function MonthBoard({
   sites,
   jobs,
   workers,
+  monthEntries = [],
+  regularIds = [],
 }: {
   year: number;
   month: number;
@@ -126,6 +131,8 @@ export function MonthBoard({
   sites: { id: string; name: string }[];
   jobs: { id: string; name: string }[];
   workers: { id: string; name: string }[];
+  monthEntries?: { userId: string; hours: number; shiftId?: string | null }[];
+  regularIds?: string[];
 }) {
   const today = toDateInput(new Date());
   const [openDate, setOpenDate] = useState<string | null>(null);
@@ -264,6 +271,9 @@ export function MonthBoard({
                 workers={workers}
                 workDate={openDate}
                 occupied={openGroups.map((group) => ({ jobTypeId: group.jobTypeId, siteId: group.siteId }))}
+                monthShifts={shifts}
+                monthEntries={monthEntries}
+                regularIds={regularIds}
               />
             </div>
           </div>

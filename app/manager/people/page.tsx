@@ -17,14 +17,35 @@ export default async function PeoplePage({
   const needUsers = tab === "workers" || tab === "rates";
   const [users, sites, jobs, rates] = await Promise.all([
     needUsers
-      ? prisma.user.findMany({ include: { profile: true }, orderBy: { name: "asc" } })
+      ? prisma.user.findMany({
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            phone: true,
+            email: true,
+            role: true,
+            active: true,
+            pendingApproval: true,
+            profile: {
+              select: {
+                birthDate: true,
+                parentPhone: true,
+                paymentMethod: true,
+                bankDetails: true,
+                personalRate: true,
+              },
+            },
+          },
+        })
       : Promise.resolve([]),
     tab === "sites" ? prisma.site.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
     tab === "jobs" || tab === "rates"
       ? prisma.jobType.findMany({ orderBy: { name: "asc" } })
       : Promise.resolve([]),
     tab === "rates"
-      ? prisma.payRate.findMany({ include: { jobType: true, user: true }, orderBy: { hourlyRate: "desc" } })
+      ? prisma.payRate.findMany({ orderBy: { hourlyRate: "desc" } })
       : Promise.resolve([]),
   ]);
 

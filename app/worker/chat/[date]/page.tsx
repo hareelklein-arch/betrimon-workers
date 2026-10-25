@@ -1,35 +1,46 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { canAccessDateChat } from "@/lib/actions";
 import { ChatForm, ChatRefresh } from "@/components/chat-form";
 import { EmptyState, PageTitle } from "@/components/shell";
 import { dateWorkIsFinished } from "@/lib/chat";
 import { formatDate, formatTime } from "@/lib/format";
-import { parseDateKey, shiftDateKey, formatShiftWhen } from "@/lib/shift";
+import { formatShiftWhen, parseDateKey, prismaShiftsOnDay } from "@/lib/shift";
 
 export default async function DateChatPage({ params }: { params: Promise<{ date: string }> }) {
   const user = await requireUser();
   const { date } = await params;
   const day = parseDateKey(date);
   if (!day) notFound();
-  if (!(await canAccessDateChat(user.id, user.role, date))) notFound();
 
-  const allShifts = await prisma.shift.findMany({
-    where: { status: { not: "cancelled" } },
-    include: { user: true, site: true, jobType: true, timeEntries: { select: { status: true } } },
+  const onDate = await prisma.shift.findMany({
+    where: prismaShiftsOnDay(day),
+    select: {
+      id: true,
+      userId: true,
+      workDate: true,
+      startsAt: true,
+      endsAt: true,
+      user: { select: { name: true } },
+      site: { select: { name: true } },
+      jobType: { select: { name: true } },
+      timeEntries: { select: { status: true } },
+    },
     orderBy: { startsAt: "asc" },
   });
-  const onDate = allShifts.filter((shift) => shiftDateKey(shift) === date);
+  if (user.role !== "manager" && !onDate.some((shift) => shift.userId === user.id)) notFound();
   const finished = dateWorkIsFinished(onDate);
-  if (finished) {
-    await prisma.dateChatMessage.deleteMany({ where: { workDateKey: date } });
-  }
   const messages = finished
     ? []
     : await prisma.dateChatMessage.findMany({
         where: { workDateKey: date },
-        include: { user: true },
+        select: {
+          id: true,
+          userId: true,
+          body: true,
+          createdAt: true,
+          user: { select: { name: true } },
+        },
         orderBy: { createdAt: "asc" },
       });
 

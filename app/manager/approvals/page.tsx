@@ -9,7 +9,17 @@ export default async function ApprovalsPage() {
   await requireManager();
   const entries = await prisma.timeEntry.findMany({
     where: { status: "submitted" },
-    include: { user: true, site: true, jobType: true },
+    select: {
+      id: true,
+      hours: true,
+      hourlyRate: true,
+      workDate: true,
+      note: true,
+      status: true,
+      user: { select: { name: true } },
+      site: { select: { name: true } },
+      jobType: { select: { name: true } },
+    },
     orderBy: { workDate: "desc" },
   });
 

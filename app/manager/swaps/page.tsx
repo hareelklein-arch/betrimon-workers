@@ -6,15 +6,27 @@ import { expireOpenSwaps } from "@/lib/queries";
 
 export default async function ManagerSwapsPage() {
   await requireManager();
-  await expireOpenSwaps();
-  const requests = await prisma.swapRequest.findMany({
-    include: {
-      requester: true,
-      taker: true,
-      shift: { include: { site: true, jobType: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [, requests] = await Promise.all([
+    expireOpenSwaps(),
+    prisma.swapRequest.findMany({
+      select: {
+        id: true,
+        status: true,
+        requester: { select: { name: true } },
+        taker: { select: { name: true } },
+        shift: {
+          select: {
+            workDate: true,
+            startsAt: true,
+            endsAt: true,
+            site: { select: { name: true } },
+            jobType: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   return (
     <>

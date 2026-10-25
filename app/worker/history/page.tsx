@@ -9,7 +9,19 @@ export default async function HistoryPage() {
   const user = await requireUser();
   const entries = await prisma.timeEntry.findMany({
     where: { userId: user.id, status: { in: ["submitted", "approved"] } },
-    include: { site: true, jobType: true },
+    select: {
+      id: true,
+      shiftId: true,
+      hours: true,
+      hourlyRate: true,
+      workDate: true,
+      startsAt: true,
+      endsAt: true,
+      note: true,
+      status: true,
+      site: { select: { name: true } },
+      jobType: { select: { name: true } },
+    },
     orderBy: { workDate: "desc" },
   });
 

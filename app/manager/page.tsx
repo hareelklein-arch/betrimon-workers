@@ -3,7 +3,7 @@ import { MonthBoard } from "@/components/month-board";
 import { PageTitle } from "@/components/shell";
 import { errorText, isNextControlFlow } from "@/lib/errors";
 import { endOfMonth, startOfMonth } from "@/lib/format";
-import { dateKey, shiftDay, uniqueAssignments } from "@/lib/shift";
+import { dateKey, prismaShiftsInRange, shiftDay, uniqueAssignments } from "@/lib/shift";
 
 export default async function ManagerSchedulePage({
   searchParams,
@@ -23,16 +23,12 @@ export default async function ManagerSchedulePage({
   let sites;
   let jobs;
   let workers;
+  let monthEntries: { userId: string; hours: number; shiftId: string | null }[] = [];
+  let regularIds: string[] = [];
   try {
   const loaded = await Promise.all([
     prisma.shift.findMany({
-      where: {
-        status: { not: "cancelled" },
-        OR: [
-          { workDate: { gte: from, lte: to } },
-          { workDate: null, startsAt: { gte: from, lte: to } },
-        ],
-      },
+      where: prismaShiftsInRange(from, to),
       select: {
         id: true,
         userId: true,
@@ -41,6 +37,7 @@ export default async function ManagerSchedulePage({
         siteId: true,
         workDate: true,
         startsAt: true,
+        endsAt: true,
         user: { select: { name: true } },
         site: { select: { name: true } },
         jobType: { select: { name: true } },
@@ -53,11 +50,21 @@ export default async function ManagerSchedulePage({
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.timeEntry.findMany({
+      where: { status: "approved", workDate: { gte: from, lte: to } },
+      select: { userId: true, hours: true, shiftId: true },
+    }),
+    prisma.shift.groupBy({
+      by: ["userId"],
+      where: { status: { not: "cancelled" } },
+    }),
   ]);
   shifts = loaded[0];
   sites = loaded[1];
   jobs = loaded[2];
   workers = loaded[3];
+  monthEntries = loaded[4];
+  regularIds = loaded[5].map((row) => row.userId);
   } catch (error) {
     if (isNextControlFlow(error)) throw error;
     return (
@@ -83,6 +90,9 @@ export default async function ManagerSchedulePage({
       siteId: shift.siteId,
       siteName: shift.site.name,
       date: dateKey(shiftDay(shift)),
+      workDate: shift.workDate,
+      startsAt: shift.startsAt,
+      endsAt: shift.endsAt,
     }));
 
   return (
@@ -91,7 +101,17 @@ export default async function ManagerSchedulePage({
         title="לוח שיבוץ חודשי"
         subtitle="אפשר לשבץ יום־יום, או להעלות טבלה והמערכת משבצת לפי השמות. מתלמדים מוסיפים ב־+ או בעמודת מתלמדים."
       />
-      <MonthBoard key={`${year}-${month}`} year={year} month={month} shifts={boardShifts} sites={sites} jobs={jobs} workers={workers} />
+      <MonthBoard
+        key={`${year}-${month}`}
+        year={year}
+        month={month}
+        shifts={boardShifts}
+        sites={sites}
+        jobs={jobs}
+        workers={workers}
+        monthEntries={monthEntries}
+        regularIds={regularIds}
+      />
     </>
   );
 }

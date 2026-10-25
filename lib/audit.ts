@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { afterResponse } from "@/lib/background";
 
 export async function writeAudit(params: {
   userId?: string | null;
@@ -8,7 +9,7 @@ export async function writeAudit(params: {
   before?: unknown;
   after?: unknown;
 }) {
-  try {
+  afterResponse(async () => {
     await prisma.auditLog.create({
       data: {
         userId: params.userId ?? null,
@@ -19,7 +20,5 @@ export async function writeAudit(params: {
         after: params.after == null ? null : JSON.stringify(params.after),
       },
     });
-  } catch (error) {
-    console.error("writeAudit", error);
-  }
+  });
 }

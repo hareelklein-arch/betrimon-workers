@@ -74,6 +74,24 @@ textarea {
   color: var(--ink);
 }
 
+a.tab-link {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.9rem;
+  background: #eef4ef;
+  color: var(--ink);
+  font-weight: 800;
+  text-align: center;
+}
+
+a.tab-link[aria-current="page"] {
+  background: var(--primary);
+  color: #fff;
+}
+
 .btn-danger {
   background: var(--danger);
 }

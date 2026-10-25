@@ -1,18 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createShiftAction,
   deleteNamedItemAction,
   deletePayRateAction,
   deleteWorkerAction,
   lockPeriodAction,
-  suggestWorkersAction,
   upsertNamedItemAction,
   upsertPayRateAction,
   upsertWorkerAction,
 } from "@/lib/actions";
+import { rankWorkersFromMonth } from "@/lib/rank-workers";
+import { parseDateKey } from "@/lib/shift";
 import { formatHours } from "@/lib/format";
 import { PleaseWait, WaitSubmit, busy, waitLabel } from "@/components/please-wait";
 
@@ -97,6 +98,9 @@ export function ShiftForm({
   workDate,
   dateLabel,
   occupied = [],
+  monthShifts = [],
+  monthEntries = [],
+  regularIds = [],
 }: {
   sites: { id: string; name: string }[];
   jobs: { id: string; name: string }[];
@@ -104,6 +108,17 @@ export function ShiftForm({
   workDate?: string;
   dateLabel?: string;
   occupied?: { jobTypeId: string; siteId: string }[];
+  monthShifts?: {
+    id: string;
+    userId: string;
+    jobTypeId: string;
+    siteId: string;
+    workDate?: Date | string | null;
+    startsAt?: Date | string | null;
+    endsAt?: Date | string | null;
+  }[];
+  monthEntries?: { userId: string; hours: number; shiftId?: string | null }[];
+  regularIds?: string[];
 }) {
   const router = useRouter();
   const initial = firstOpenCombo(jobs, sites, occupied);
@@ -141,22 +156,31 @@ export function ShiftForm({
     setRanked(true);
   }
 
-  useEffect(() => {
-    if (!workDate || !jobTypeId || !siteId) return;
-    const formData = new FormData();
-    formData.set("workDate", workDate);
-    formData.set("jobTypeId", jobTypeId);
-    formData.set("siteId", siteId);
-    busy(start, async () => {
-      const result = await suggestWorkersAction(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setError("");
-      applyCrew(result.workers);
+  const rankedWorkers = useMemo(() => {
+    const day = workDate ? parseDateKey(workDate) : null;
+    if (!day) {
+      return workers.map((worker) => ({
+        ...worker,
+        hours: 0,
+        shifts: 0,
+        assignedThatDay: false,
+        assignedToThisJob: false,
+        regular: regularIds.includes(worker.id),
+      }));
+    }
+    return rankWorkersFromMonth({
+      workers,
+      regularIds,
+      entries: monthEntries,
+      shifts: monthShifts,
+      workDate: day,
+      job: { jobTypeId, siteId },
     });
-  }, [workDate, jobTypeId, siteId]);
+  }, [workDate, jobTypeId, siteId, workers, monthEntries, monthShifts, regularIds]);
+
+  useEffect(() => {
+    applyCrew(rankedWorkers);
+  }, [rankedWorkers, crewSize]);
 
   function toggleWorker(id: string) {
     setTrainees((current) => current.filter((item) => item !== id));
@@ -209,12 +233,13 @@ export function ShiftForm({
             setJobTypeId(next.jobTypeId);
             setSiteId(next.siteId);
           } else {
-            const refresh = new FormData();
-            refresh.set("workDate", workDate || String(formData.get("workDate") || ""));
-            refresh.set("jobTypeId", jobTypeId);
-            refresh.set("siteId", siteId);
-            const rankedResult = await suggestWorkersAction(refresh);
-            if (rankedResult.ok) applyCrew(rankedResult.workers);
+            applyCrew(
+              rankedWorkers.map((worker) =>
+                selected.includes(worker.id) || trainees.includes(worker.id)
+                  ? { ...worker, assignedThatDay: true, assignedToThisJob: true }
+                  : worker,
+              ),
+            );
           }
           router.refresh();
       }}

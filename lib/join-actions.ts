@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { hashPassword, validatePassword, validateUsername } from "@/lib/password";
+import { afterResponse } from "@/lib/background";
 import { notifyUsers } from "@/lib/notifications";
 import { normalizePhone } from "@/lib/format";
 import { isValidJoinToken } from "@/lib/join";
@@ -55,13 +56,15 @@ export async function registerWorkerAction(formData: FormData) {
       where: { role: "manager", active: true },
       select: { id: true },
     });
-    await notifyUsers({
-      userIds: managers.map((row) => row.id),
-      type: "worker_pending",
-      title: "עובד חדש ממתין לאישור",
-      body: `${name} נרשם/ה דרך קישור הרישום. צריך לאשר כדי שיוכל/תוכל להיכנס.`,
-      meta: { userId: user.id },
-    });
+    afterResponse(() =>
+      notifyUsers({
+        userIds: managers.map((row) => row.id),
+        type: "worker_pending",
+        title: "עובד חדש ממתין לאישור",
+        body: `${name} נרשם/ה דרך קישור הרישום. צריך לאשר כדי שיוכל/תוכל להיכנס.`,
+        meta: { userId: user.id },
+      }),
+    );
 
     return { ok: true as const };
   } catch (error) {

@@ -15,10 +15,12 @@ export default async function PayrollPage({
   const now = new Date();
   const year = Number(params.year) || now.getFullYear();
   const month = Number(params.month) || now.getMonth() + 1;
-  const report = await payrollReport(year, month);
-  const period = await prisma.payrollPeriod.findUnique({
-    where: { year_month: { year, month } },
-  });
+  const [report, period] = await Promise.all([
+    payrollReport(year, month),
+    prisma.payrollPeriod.findUnique({
+      where: { year_month: { year, month } },
+    }),
+  ]);
   const locked = Boolean(period?.lockedAt);
 
   const prev = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
