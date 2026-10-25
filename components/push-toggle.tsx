@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { enablePushNotifications } from "@/lib/push-client";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, beginWait, endWait, waitLabel } from "@/components/please-wait";
 
 export function PushToggle() {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
 
   async function enable() {
+    beginWait();
     setPending(true);
     const result = await enablePushNotifications();
     setPending(false);
+    endWait();
     setMessage(result.ok ? "התראות לטלפון הופעלו." : result.error);
   }
 

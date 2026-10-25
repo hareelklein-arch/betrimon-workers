@@ -14,7 +14,7 @@ import {
   upsertWorkerAction,
 } from "@/lib/actions";
 import { formatHours } from "@/lib/format";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, WaitSubmit, busy, waitLabel } from "@/components/please-wait";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
@@ -147,7 +147,7 @@ export function ShiftForm({
     formData.set("workDate", workDate);
     formData.set("jobTypeId", jobTypeId);
     formData.set("siteId", siteId);
-    start(async () => {
+    busy(start, async () => {
       const result = await suggestWorkersAction(formData);
       if (!result.ok) {
         setError(result.error);
@@ -177,9 +177,8 @@ export function ShiftForm({
   return (
     <form
       className="grid gap-3"
-      action={(formData) => {
+      action={async (formData) => {
         if (pending) return;
-        start(async () => {
           if (selected.length < MIN_CREW) {
             setError("חייבים לפחות 2 עובדים. מתלמדים מוסיפים בנפרד.");
             setMessage("");
@@ -218,7 +217,6 @@ export function ShiftForm({
             if (rankedResult.ok) applyCrew(rankedResult.workers);
           }
           router.refresh();
-        });
       }}
     >
       <PleaseWait show={pending} />
@@ -390,9 +388,11 @@ export function ShiftForm({
           יש רק {selected.length} עובדים פנויים.
         </p>
       ) : null}
-      <button className="btn w-full" disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}>
-        {waitLabel(pending, "שיבוץ")}
-      </button>
+      <WaitSubmit
+        className="btn w-full"
+        label="שיבוץ"
+        disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}
+      />
     </form>
   );
 }
@@ -423,7 +423,6 @@ export function WorkerForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [pending, start] = useTransition();
   const birthDate = worker?.profile?.birthDate
     ? new Date(worker.profile.birthDate).toISOString().slice(0, 10)
     : "";
@@ -431,18 +430,15 @@ export function WorkerForm({
   return (
     <form
       className={plain ? "grid gap-3" : "card grid gap-3 p-4"}
-      action={(formData) => {
-        start(async () => {
-          const result = await upsertWorkerAction(formData);
-          setError(result.ok ? "" : result.error);
-          if (result.ok) {
-            router.refresh();
-            onSuccess?.();
-          }
-        });
+      action={async (formData) => {
+        const result = await upsertWorkerAction(formData);
+        setError(result.ok ? "" : result.error);
+        if (result.ok) {
+          router.refresh();
+          onSuccess?.();
+        }
       }}
     >
-      <PleaseWait show={pending} />
       {worker ? <input type="hidden" name="id" value={worker.id} /> : null}
       <label className="field">
         <span>שם</span>
@@ -499,9 +495,7 @@ export function WorkerForm({
         פעיל
       </label>
       <ErrorText error={error} />
-      <button className="btn" disabled={pending}>
-        {waitLabel(pending, worker ? "עדכון" : "הוספת עובד")}
-      </button>
+      <WaitSubmit label={worker ? "עדכון" : "הוספת עובד"} />
     </form>
   );
 }
@@ -514,7 +508,7 @@ export function NamedItemForm({ kind, item }: { kind: "site" | "job"; item?: { i
       <form
         className="flex flex-wrap gap-2"
         action={(formData) => {
-          start(async () => {
+          busy(start, async () => {
             const result = await upsertNamedItemAction(formData);
             setError(result.ok ? "" : result.error);
           });
@@ -561,7 +555,7 @@ export function DeleteNamedItemButton({
     <form
       action={(formData) => {
         if (!window.confirm(confirmText)) return;
-        start(async () => {
+        busy(start, async () => {
           const result = await deleteNamedItemAction(formData);
           setError(result.ok ? "" : result.error);
           if (result.ok) router.refresh();
@@ -587,7 +581,7 @@ export function DeleteWorkerButton({ id, name }: { id: string; name: string }) {
     <form
       action={(formData) => {
         if (!window.confirm(`למחוק את ${name}? השיבוצים והדיווחים שלו יימחקו.`)) return;
-        start(async () => {
+        busy(start, async () => {
           try {
             const result = await deleteWorkerAction(formData);
             setError(result.ok ? "" : result.error);
@@ -633,7 +627,7 @@ export function RateForm({
       <form
         className="grid gap-3"
         action={(formData) => {
-          start(async () => {
+          busy(start, async () => {
             const result = await upsertPayRateAction(formData);
             setError(result.ok ? "" : result.error);
             if (result.ok) router.refresh();
@@ -701,7 +695,7 @@ export function DeleteRateButton({ id }: { id: string }) {
   return (
     <form
       action={(formData) => {
-        start(async () => {
+        busy(start, async () => {
           const result = await deletePayRateAction(formData);
           setError(result.ok ? "" : result.error);
           if (result.ok) router.refresh();
@@ -723,7 +717,7 @@ export function LockPeriodForm({ year, month, locked }: { year: number; month: n
   return (
     <form
       action={(formData) => {
-        start(async () => {
+        busy(start, async () => {
           await lockPeriodAction(formData);
         });
       }}

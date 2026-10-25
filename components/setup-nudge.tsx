@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { enablePushNotifications, isAppInstalled, notificationsAllowed } from "@/lib/push-client";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, beginWait, endWait, waitLabel } from "@/components/please-wait";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -46,21 +46,25 @@ export function SetupNudge() {
 
   async function installApp() {
     if (!installEvent) return;
+    beginWait();
     setPending(true);
     setMessage("");
     await installEvent.prompt();
     const choice = await installEvent.userChoice;
     setInstallEvent(null);
     setPending(false);
+    endWait();
     if (choice.outcome === "accepted") setInstalled(true);
     refresh();
   }
 
   async function allowNotify() {
+    beginWait();
     setPending(true);
     setMessage("");
     const result = await enablePushNotifications();
     setPending(false);
+    endWait();
     if (!result.ok) {
       setMessage(result.error);
       return;

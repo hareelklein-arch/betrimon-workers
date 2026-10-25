@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import { requireManager } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
-import { prisma } from "@/lib/db";
+import { PendingWorkersBanner, UnreadDot } from "@/components/shell-badges";
 import { errorText, isNextControlFlow } from "@/lib/errors";
-import { unreadCount } from "@/lib/unread";
 
 const nav = [
   { href: "/manager", label: "שיבוץ" },
@@ -14,18 +14,21 @@ const nav = [
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   try {
     const user = await requireManager();
-    const [pendingWorkers, unread] = await Promise.all([
-      prisma.user.count({ where: { pendingApproval: true } }).catch((error) => {
-        console.error("pendingWorkers", error);
-        return 0;
-      }),
-      unreadCount(user.id).catch((error) => {
-        console.error("unreadCount", error);
-        return 0;
-      }),
-    ]);
     return (
-      <AppShell user={user} nav={nav} pendingWorkers={pendingWorkers} unread={unread}>
+      <AppShell
+        user={user}
+        nav={nav}
+        bell={
+          <Suspense fallback={null}>
+            <UnreadDot userId={user.id} />
+          </Suspense>
+        }
+        banner={
+          <Suspense fallback={null}>
+            <PendingWorkersBanner />
+          </Suspense>
+        }
+      >
         {children}
       </AppShell>
     );

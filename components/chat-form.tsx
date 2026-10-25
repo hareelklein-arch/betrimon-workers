@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { sendDateChatAction } from "@/lib/actions";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
 
 export function ChatRefresh() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export function ChatForm({ workDateKey }: { workDateKey: string }) {
     <form
       className="sticky bottom-24 mt-4 grid gap-2"
       action={(formData) => {
-        start(async () => {
+        busy(start, async () => {
           const result = await sendDateChatAction(formData);
           setError(result.ok ? "" : result.error);
           const form = document.querySelector("form.sticky") as HTMLFormElement | null;

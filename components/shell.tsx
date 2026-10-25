@@ -10,14 +10,14 @@ export function AppShell({
   user,
   nav,
   children,
-  pendingWorkers = 0,
-  unread = 0,
+  bell,
+  banner,
 }: {
   user: { id: string; name: string; role: string };
   nav: NavItem[];
   children: React.ReactNode;
-  pendingWorkers?: number;
-  unread?: number;
+  bell?: React.ReactNode;
+  banner?: React.ReactNode;
 }) {
   const home = user.role === "manager" ? "/manager" : "/worker";
   const notificationsHref = user.role === "manager" ? "/manager/notifications" : "/worker/notifications";
@@ -33,24 +33,13 @@ export function AppShell({
         <div className="flex items-center gap-2">
           <Link href={notificationsHref} className="btn btn-secondary relative px-3">
             פעמון
-            {unread > 0 ? (
-              <span className="absolute -top-1 -left-1 min-w-5 rounded-full bg-[var(--danger)] px-1 text-center text-xs text-white">
-                {unread}
-              </span>
-            ) : null}
+            {bell}
           </Link>
           <LogoutButton />
         </div>
       </header>
       <SetupNudge />
-      {pendingWorkers > 0 ? (
-        <Link href="/manager/people?tab=workers" className="card mb-4 block border-[var(--accent)] p-4">
-          <p className="font-extrabold">יש עובדים לאשר</p>
-          <p className="text-sm text-[var(--muted)]">
-            {pendingWorkers === 1 ? "עובד אחד ממתין לאישור." : `${pendingWorkers} עובדים ממתינים לאישור.`}
-          </p>
-        </Link>
-      ) : null}
+      {banner}
       <main>{children}</main>
       <div className="mt-6">
         <PushToggle />

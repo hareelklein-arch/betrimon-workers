@@ -47,18 +47,13 @@ export async function getSession() {
 export const getCurrentUser = cache(async () => {
   const session = await getSession();
   if (!session.user) return null;
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      role: true,
-      active: true,
-    },
-  });
-  if (!user || !user.active) return null;
-  return user;
+  return {
+    id: session.user.id,
+    name: session.user.name,
+    phone: session.user.phone,
+    role: session.user.role,
+    active: true,
+  };
 });
 
 export async function requireUser() {

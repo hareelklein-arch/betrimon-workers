@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
+import { Suspense } from "react";
+import { WaitHost } from "@/components/please-wait";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -27,7 +29,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={heebo.className}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Suspense fallback={null}>
+          <WaitHost />
+        </Suspense>
+      </body>
     </html>
   );
 }

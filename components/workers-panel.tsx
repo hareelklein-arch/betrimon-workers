@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DeleteWorkerButton, WorkerForm } from "@/components/manager-forms";
 import { approveWorkerAction, deleteWorkerAction } from "@/lib/actions";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
 
 export type WorkerListItem = {
   id: string;
@@ -194,7 +194,7 @@ function PendingWorkerCard({ user }: { user: WorkerListItem }) {
           onClick={() => {
             const formData = new FormData();
             formData.set("id", user.id);
-            start(async () => {
+            busy(start, async () => {
               const result = await approveWorkerAction(formData);
               setError(result.ok ? "" : result.error);
               if (result.ok) router.refresh();
@@ -211,7 +211,7 @@ function PendingWorkerCard({ user }: { user: WorkerListItem }) {
             if (!window.confirm(`לדחות את ${user.name}? החשבון יימחק.`)) return;
             const formData = new FormData();
             formData.set("id", user.id);
-            start(async () => {
+            busy(start, async () => {
               const result = await deleteWorkerAction(formData);
               setError(result.ok ? "" : result.error);
               if (result.ok) router.refresh();

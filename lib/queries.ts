@@ -116,11 +116,15 @@ export async function workersRankedByLeastWork(workDate: Date, job?: { jobTypeId
   const to = endOfMonth(workDate.getFullYear(), workDate.getMonth() + 1);
   const dayKey = dateKey(startOfDay(workDate));
 
-  const [workers, entries, shifts, everWorked] = await Promise.all([
+  const [workers, entries, shifts] = await Promise.all([
     prisma.user.findMany({
       where: { role: "worker", active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        assignedShifts: { where: { status: { not: "cancelled" } }, take: 1, select: { id: true } },
+      },
     }),
     prisma.timeEntry.findMany({
       where: { status: "approved", workDate: { gte: from, lte: to } },
@@ -135,11 +139,6 @@ export async function workersRankedByLeastWork(workDate: Date, job?: { jobTypeId
         ],
       },
       select: { id: true, userId: true, workDate: true, startsAt: true, endsAt: true, jobTypeId: true, siteId: true },
-    }),
-    prisma.shift.findMany({
-      where: { status: { not: "cancelled" } },
-      distinct: ["userId"],
-      select: { userId: true },
     }),
   ]);
 
@@ -172,7 +171,7 @@ export async function workersRankedByLeastWork(workDate: Date, job?: { jobTypeId
     }
   }
 
-  const hasWorked = new Set(everWorked.map((shift) => shift.userId));
+  const hasWorked = new Set(workers.filter((worker) => worker.assignedShifts.length > 0).map((worker) => worker.id));
 
   return workers
     .map((worker) => {

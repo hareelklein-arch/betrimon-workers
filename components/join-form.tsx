@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { registerWorkerAction } from "@/lib/join-actions";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { WaitSubmit } from "@/components/please-wait";
 
 export function JoinForm({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
-  const [pending, start] = useTransition();
 
   if (done) {
     return (
@@ -21,12 +20,10 @@ export function JoinForm({ token }: { token: string }) {
   return (
     <form
       className="card grid gap-3 p-6"
-      action={(formData) => {
-        start(async () => {
-          const result = await registerWorkerAction(formData);
-          setError(result.ok ? "" : result.error);
-          if (result.ok) setDone(true);
-        });
+      action={async (formData) => {
+        const result = await registerWorkerAction(formData);
+        setError(result.ok ? "" : result.error);
+        if (result.ok) setDone(true);
       }}
     >
       <input type="hidden" name="token" value={token} />
@@ -72,11 +69,8 @@ export function JoinForm({ token }: { token: string }) {
         <span>פרטי תשלום</span>
         <input name="bankDetails" />
       </label>
-      <PleaseWait show={pending} />
       {error ? <p className="text-sm font-bold text-[var(--danger)]">{error}</p> : null}
-      <button className="btn" disabled={pending}>
-        {waitLabel(pending, "שליחת בקשה")}
-      </button>
+      <WaitSubmit label="שליחת בקשה" />
     </form>
   );
 }

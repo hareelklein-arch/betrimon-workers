@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
 import { MonthBoard } from "@/components/month-board";
 import { PageTitle } from "@/components/shell";
 import { errorText, isNextControlFlow } from "@/lib/errors";
@@ -11,7 +10,6 @@ export default async function ManagerSchedulePage({
 }: {
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
-  await requireManager();
   const params = await searchParams;
   const now = new Date();
   const year = Number(params.year) || now.getFullYear();

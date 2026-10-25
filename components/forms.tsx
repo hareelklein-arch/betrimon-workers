@@ -16,7 +16,7 @@ import {
   upsertWorkerAction,
 } from "@/lib/actions";
 import { loginAction } from "@/lib/auth-actions";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, WaitSubmit, beginWait, busy, endWait, waitLabel } from "@/components/please-wait";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
@@ -26,22 +26,20 @@ function ErrorText({ error }: { error?: string }) {
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [pending, start] = useTransition();
 
   return (
     <form
       className="grid gap-3"
-      action={(formData) => {
-        start(async () => {
-          setError("");
-          const result = await loginAction(formData);
-          if (!result.ok) {
-            setError(result.error);
-            return;
-          }
-          router.replace(result.role === "manager" ? "/manager" : "/worker");
-          router.refresh();
-        });
+      action={async (formData) => {
+        setError("");
+        beginWait();
+        const result = await loginAction(formData);
+        if (!result.ok) {
+          setError(result.error);
+          endWait();
+          return;
+        }
+        router.replace(result.role === "manager" ? "/manager" : "/worker");
       }}
     >
       <label className="field">
@@ -52,11 +50,8 @@ export function LoginForm() {
         <span>סיסמה</span>
         <input name="password" type="password" autoComplete="current-password" required />
       </label>
-      <PleaseWait show={pending} />
       <ErrorText error={error} />
-      <button className="btn" disabled={pending}>
-        {waitLabel(pending, "כניסה")}
-      </button>
+      <WaitSubmit label="כניסה" />
     </form>
   );
 }
@@ -79,21 +74,17 @@ export function TimeEntryForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [pending, start] = useTransition();
 
   return (
     <form
       className="card grid gap-3 p-4"
-      action={(formData) => {
-        start(async () => {
-          const result = await submitTimeEntryAction(formData);
-          if (!result.ok) {
-            setError(result.error);
-            return;
-          }
-          router.replace("/worker");
-          router.refresh();
-        });
+      action={async (formData) => {
+        const result = await submitTimeEntryAction(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        router.replace("/worker");
       }}
     >
       <input type="hidden" name="shiftId" value={shift.id} />
@@ -140,11 +131,8 @@ export function TimeEntryForm({
         <span>הערה</span>
         <textarea name="note" rows={3} />
       </label>
-      <PleaseWait show={pending} />
       <ErrorText error={error} />
-      <button className="btn" disabled={pending}>
-        {waitLabel(pending, "שליחת דיווח לאישור")}
-      </button>
+      <WaitSubmit label="שליחת דיווח לאישור" />
     </form>
   );
 }
@@ -161,25 +149,19 @@ export function ActionButton({
   hidden?: Record<string, string>;
 }) {
   const [error, setError] = useState("");
-  const [pending, start] = useTransition();
   return (
     <form
-      action={(formData) => {
-        start(async () => {
-          const result = await action(formData);
-          if (result && "ok" in result && !result.ok) {
-            setError(result.error || "שגיאה");
-          }
-        });
+      action={async (formData) => {
+        const result = await action(formData);
+        if (result && "ok" in result && !result.ok) {
+          setError(result.error || "שגיאה");
+        }
       }}
     >
       {hidden
         ? Object.entries(hidden).map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)
         : null}
-      <PleaseWait show={pending} />
-      <button className={className} disabled={pending}>
-        {waitLabel(pending, label)}
-      </button>
+      <WaitSubmit label={label} className={className} />
       <ErrorText error={error} />
     </form>
   );
@@ -193,7 +175,7 @@ export function ReviewForm({ id }: { id: string }) {
     return (formData: FormData) => {
       formData.set("id", id);
       formData.set("decision", decision);
-      start(async () => {
+      busy(start, async () => {
         const result = await reviewTimeEntryAction(formData);
         setError(result.ok ? "" : result.error);
       });
@@ -222,7 +204,7 @@ export function MarkAllReadButton() {
   return (
     <form
       action={() => {
-        start(async () => {
+        busy(start, async () => {
           await markNotificationsReadAction();
         });
       }}

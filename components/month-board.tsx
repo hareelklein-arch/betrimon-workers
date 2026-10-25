@@ -7,7 +7,7 @@ import { ShiftForm } from "@/components/manager-forms";
 import { ScheduleImportForm } from "@/components/schedule-import";
 import { cancelShiftsAction } from "@/lib/actions";
 import { formatDate, formatMonth, toDateInput } from "@/lib/format";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
 
 export type BoardShift = {
   id: string;
@@ -89,7 +89,7 @@ function CancelGroupButton({ ids }: { ids: string[] }) {
   return (
     <form
       action={(formData) => {
-        start(async () => {
+        busy(start, async () => {
           try {
             const result = await cancelShiftsAction(formData);
             setError(result.ok ? "" : result.error);

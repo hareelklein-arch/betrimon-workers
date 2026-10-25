@@ -1,7 +1,8 @@
+import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
+import { UnreadDot } from "@/components/shell-badges";
 import { errorText, isNextControlFlow } from "@/lib/errors";
-import { unreadCount } from "@/lib/unread";
 
 const nav = [
   { href: "/worker", label: "שלי" },
@@ -14,27 +15,23 @@ const nav = [
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
   try {
     const user = await requireUser();
-    const unread = await unreadCount(user.id).catch((error) => {
-      console.error("unreadCount", error);
-      return 0;
-    });
-    if (user.role === "manager") {
-      return (
-        <AppShell
-          user={user}
-          nav={[
-            { href: "/manager", label: "לוח" },
-            { href: "/worker", label: "מבט עובד" },
-            ...nav.slice(1),
-          ]}
-          unread={unread}
-        >
-          {children}
-        </AppShell>
-      );
-    }
-
-    return <AppShell user={user} nav={nav} unread={unread}>{children}</AppShell>;
+    const workerNav =
+      user.role === "manager"
+        ? [{ href: "/manager", label: "לוח" }, { href: "/worker", label: "מבט עובד" }, ...nav.slice(1)]
+        : nav;
+    return (
+      <AppShell
+        user={user}
+        nav={workerNav}
+        bell={
+          <Suspense fallback={null}>
+            <UnreadDot userId={user.id} />
+          </Suspense>
+        }
+      >
+        {children}
+      </AppShell>
+    );
   } catch (error) {
     if (isNextControlFlow(error)) throw error;
     return (

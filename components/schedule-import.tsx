@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { importScheduleAction } from "@/lib/actions";
 import { toDateInput } from "@/lib/format";
-import { PleaseWait, waitLabel } from "@/components/please-wait";
+import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
 
 export function ScheduleImportForm({
   sites,
@@ -43,7 +43,7 @@ export function ScheduleImportForm({
       className="card grid gap-3 p-4"
       action={(formData) => {
         if (pending) return;
-        start(async () => {
+        busy(start, async () => {
           const result = await importScheduleAction(formData);
           setWarnings(result.warnings ?? []);
           if (!result.ok) {

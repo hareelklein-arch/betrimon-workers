@@ -16,15 +16,24 @@ export function parsePeopleTab(value?: string): PeopleTab {
 export function PeopleNav({ current }: { current: PeopleTab }) {
   return (
     <nav className="sticky top-0 z-10 mb-4 grid grid-cols-4 gap-1 bg-[var(--bg)]/95 py-2 backdrop-blur">
-      {PEOPLE_TABS.map((tab) => (
-        <Link
-          key={tab.id}
-          href={`/manager/people?tab=${tab.id}`}
-          className={`btn px-1 text-xs sm:px-2 sm:text-sm ${current === tab.id ? "" : "btn-secondary"}`}
-        >
-          {tab.label}
-        </Link>
-      ))}
+      {PEOPLE_TABS.map((tab) => {
+        const active = current === tab.id;
+        return (
+          <Link
+            key={tab.id}
+            href={`/manager/people?tab=${tab.id}`}
+            data-no-wait
+            aria-current={active ? "page" : undefined}
+            className={`flex min-h-12 items-center justify-center rounded-[0.9rem] px-1 text-center text-xs font-extrabold sm:px-2 sm:text-sm ${
+              active
+                ? "bg-[var(--primary)] !text-white shadow-sm"
+                : "bg-[#eef4ef] !text-[var(--ink)]"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
