@@ -6,6 +6,7 @@ import {
   cancelShiftAction,
   createShiftAction,
   lockPeriodAction,
+  markNotificationsReadAction,
   requestSwapAction,
   reviewTimeEntryAction,
   submitTimeEntryAction,
@@ -15,6 +16,7 @@ import {
   upsertWorkerAction,
 } from "@/lib/actions";
 import { loginAction } from "@/lib/auth-actions";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
@@ -50,9 +52,10 @@ export function LoginForm() {
         <span>סיסמה</span>
         <input name="password" type="password" autoComplete="current-password" required />
       </label>
+      <PleaseWait show={pending} />
       <ErrorText error={error} />
       <button className="btn" disabled={pending}>
-        כניסה
+        {waitLabel(pending, "כניסה")}
       </button>
     </form>
   );
@@ -137,9 +140,10 @@ export function TimeEntryForm({
         <span>הערה</span>
         <textarea name="note" rows={3} />
       </label>
+      <PleaseWait show={pending} />
       <ErrorText error={error} />
       <button className="btn" disabled={pending}>
-        שליחת דיווח לאישור
+        {waitLabel(pending, "שליחת דיווח לאישור")}
       </button>
     </form>
   );
@@ -172,8 +176,9 @@ export function ActionButton({
       {hidden
         ? Object.entries(hidden).map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)
         : null}
+      <PleaseWait show={pending} />
       <button className={className} disabled={pending}>
-        {label}
+        {waitLabel(pending, label)}
       </button>
       <ErrorText error={error} />
     </form>
@@ -198,15 +203,34 @@ export function ReviewForm({ id }: { id: string }) {
   return (
     <form className="grid gap-2">
       <textarea name="rejectionReason" placeholder="סיבת דחייה, אם דוחים" rows={2} />
+      <PleaseWait show={pending} />
       <div className="flex gap-2">
         <button className="btn" formAction={submit("approved")} disabled={pending}>
-          אישור
+          {waitLabel(pending, "אישור")}
         </button>
         <button className="btn btn-danger" formAction={submit("rejected")} disabled={pending}>
-          דחייה
+          {waitLabel(pending, "דחייה")}
         </button>
       </div>
       <ErrorText error={error} />
+    </form>
+  );
+}
+
+export function MarkAllReadButton() {
+  const [pending, start] = useTransition();
+  return (
+    <form
+      action={() => {
+        start(async () => {
+          await markNotificationsReadAction();
+        });
+      }}
+    >
+      <PleaseWait show={pending} />
+      <button className="btn btn-secondary" disabled={pending}>
+        {waitLabel(pending, "סימון הכול כנקרא")}
+      </button>
     </form>
   );
 }

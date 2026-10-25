@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DeleteWorkerButton, WorkerForm } from "@/components/manager-forms";
 import { approveWorkerAction, deleteWorkerAction } from "@/lib/actions";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 export type WorkerListItem = {
   id: string;
@@ -183,6 +184,7 @@ function PendingWorkerCard({ user }: { user: WorkerListItem }) {
           {user.email ? ` · ${user.email}` : ""}
         </p>
       </div>
+      <PleaseWait show={pending} />
       {error ? <p className="text-sm font-bold text-[var(--danger)]">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button
@@ -199,7 +201,7 @@ function PendingWorkerCard({ user }: { user: WorkerListItem }) {
             });
           }}
         >
-          אישור
+          {waitLabel(pending, "אישור")}
         </button>
         <button
           type="button"
@@ -216,7 +218,7 @@ function PendingWorkerCard({ user }: { user: WorkerListItem }) {
             });
           }}
         >
-          דחייה
+          {waitLabel(pending, "דחייה")}
         </button>
       </div>
     </article>

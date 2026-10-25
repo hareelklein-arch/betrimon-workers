@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { enablePushNotifications, isAppInstalled, notificationsAllowed } from "@/lib/push-client";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -79,15 +80,16 @@ export function SetupNudge() {
         <li>{installed ? "נוספה למסך הבית" : "עדיין לא במסך הבית"}</li>
         <li>{notifyOk ? "התראות אושרו" : "עדיין בלי אישור התראות"}</li>
       </ul>
+      <PleaseWait show={pending} />
       <div className="mt-4 flex flex-wrap gap-2">
         {!installed && installEvent ? (
           <button type="button" className="btn" disabled={pending} onClick={installApp}>
-            הוספה למסך הבית
+            {waitLabel(pending, "הוספה למסך הבית")}
           </button>
         ) : null}
         {!notifyOk ? (
           <button type="button" className="btn" disabled={pending} onClick={allowNotify}>
-            אישור התראות
+            {waitLabel(pending, "אישור התראות")}
           </button>
         ) : null}
       </div>

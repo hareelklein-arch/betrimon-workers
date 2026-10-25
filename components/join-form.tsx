@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { registerWorkerAction } from "@/lib/join-actions";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 export function JoinForm({ token }: { token: string }) {
   const [error, setError] = useState("");
@@ -71,9 +72,10 @@ export function JoinForm({ token }: { token: string }) {
         <span>פרטי תשלום</span>
         <input name="bankDetails" />
       </label>
+      <PleaseWait show={pending} />
       {error ? <p className="text-sm font-bold text-[var(--danger)]">{error}</p> : null}
       <button className="btn" disabled={pending}>
-        שליחת בקשה
+        {waitLabel(pending, "שליחת בקשה")}
       </button>
     </form>
   );

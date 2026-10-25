@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { markNotificationsReadAction } from "@/lib/actions";
+import { MarkAllReadButton } from "@/components/forms";
 import { EmptyState, PageTitle } from "@/components/shell";
 import { formatDateTime } from "@/lib/format";
 import { dismissWorkerPendingNotifications, notificationCta } from "@/lib/notifications";
@@ -15,9 +15,9 @@ export async function NotificationsView({ userId }: { userId: string }) {
   return (
     <>
       <PageTitle title="התראות" subtitle="לוחצים על התראה כדי לעבור ישר לדף הרלוונטי." />
-      <form action={markNotificationsReadAction} className="mb-4">
-        <button className="btn btn-secondary">סימון הכול כנקרא</button>
-      </form>
+      <div className="mb-4">
+        <MarkAllReadButton />
+      </div>
       {items.length === 0 ? (
         <EmptyState text="אין התראות." />
       ) : (

@@ -7,6 +7,7 @@ import { ShiftForm } from "@/components/manager-forms";
 import { ScheduleImportForm } from "@/components/schedule-import";
 import { cancelShiftsAction } from "@/lib/actions";
 import { formatDate, formatMonth, toDateInput } from "@/lib/format";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 export type BoardShift = {
   id: string;
@@ -102,8 +103,9 @@ function CancelGroupButton({ ids }: { ids: string[] }) {
       {ids.map((id) => (
         <input key={id} type="hidden" name="id" value={id} />
       ))}
+      <PleaseWait show={pending} />
       <button className="btn btn-danger" disabled={pending}>
-        ביטול העבודה
+        {waitLabel(pending, "ביטול העבודה")}
       </button>
       {error ? <p className="mt-2 text-sm font-bold text-[var(--danger)]">{error}</p> : null}
     </form>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { importScheduleAction } from "@/lib/actions";
 import { toDateInput } from "@/lib/format";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 export function ScheduleImportForm({
   sites,
@@ -85,8 +86,9 @@ export function ScheduleImportForm({
           ))}
         </ul>
       ) : null}
+      <PleaseWait show={pending} />
       <button className="btn" disabled={pending}>
-        {pending ? "משבץ לפי הטבלה…" : "שבץ לפי הטבלה"}
+        {waitLabel(pending, "שבץ לפי הטבלה")}
       </button>
     </form>
   );

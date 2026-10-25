@@ -14,6 +14,7 @@ import {
   upsertWorkerAction,
 } from "@/lib/actions";
 import { formatHours } from "@/lib/format";
+import { PleaseWait, waitLabel } from "@/components/please-wait";
 
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
@@ -220,6 +221,7 @@ export function ShiftForm({
         });
       }}
     >
+      <PleaseWait show={pending} />
       <div>
         <h3 className="text-lg font-extrabold">עבודה חדשה</h3>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -389,7 +391,7 @@ export function ShiftForm({
         </p>
       ) : null}
       <button className="btn w-full" disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}>
-        שיבוץ
+        {waitLabel(pending, "שיבוץ")}
       </button>
     </form>
   );
@@ -440,6 +442,7 @@ export function WorkerForm({
         });
       }}
     >
+      <PleaseWait show={pending} />
       {worker ? <input type="hidden" name="id" value={worker.id} /> : null}
       <label className="field">
         <span>שם</span>
@@ -497,7 +500,7 @@ export function WorkerForm({
       </label>
       <ErrorText error={error} />
       <button className="btn" disabled={pending}>
-        {worker ? "עדכון" : "הוספת עובד"}
+        {waitLabel(pending, worker ? "עדכון" : "הוספת עובד")}
       </button>
     </form>
   );
@@ -520,8 +523,9 @@ export function NamedItemForm({ kind, item }: { kind: "site" | "job"; item?: { i
         <input type="hidden" name="kind" value={kind} />
         {item ? <input type="hidden" name="id" value={item.id} /> : null}
         <input name="name" placeholder="שם" defaultValue={item?.name} required />
+        <PleaseWait show={pending} />
         <button className="btn" disabled={pending}>
-          {item ? "שמירה" : "הוספה"}
+          {waitLabel(pending, item ? "שמירה" : "הוספה")}
         </button>
       </form>
       {item ? (
@@ -566,8 +570,9 @@ export function DeleteNamedItemButton({
     >
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="id" value={id} />
+      <PleaseWait show={pending} />
       <button className="btn btn-danger" disabled={pending}>
-        מחיקה
+        {waitLabel(pending, "מחיקה")}
       </button>
       <ErrorText error={error} />
     </form>
@@ -594,8 +599,9 @@ export function DeleteWorkerButton({ id, name }: { id: string; name: string }) {
       }}
     >
       <input type="hidden" name="id" value={id} />
+      <PleaseWait show={pending} />
       <button className="btn btn-danger" disabled={pending}>
-        מחיקת עובד
+        {waitLabel(pending, "מחיקת עובד")}
       </button>
       <ErrorText error={error} />
     </form>
@@ -678,8 +684,9 @@ export function RateForm({
           </label>
         ) : null}
         <ErrorText error={error} />
+        <PleaseWait show={pending} />
         <button className="btn" disabled={pending}>
-          {rate ? "עדכון תעריף" : "שמירת תעריף"}
+          {waitLabel(pending, rate ? "עדכון תעריף" : "שמירת תעריף")}
         </button>
       </form>
       {rate ? <DeleteRateButton id={rate.id} /> : null}
@@ -702,8 +709,9 @@ export function DeleteRateButton({ id }: { id: string }) {
       }}
     >
       <input type="hidden" name="id" value={id} />
+      <PleaseWait show={pending} />
       <button className="btn btn-danger" disabled={pending}>
-        מחיקה
+        {waitLabel(pending, "מחיקה")}
       </button>
       <ErrorText error={error} />
     </form>
@@ -723,8 +731,9 @@ export function LockPeriodForm({ year, month, locked }: { year: number; month: n
       <input type="hidden" name="year" value={year} />
       <input type="hidden" name="month" value={month} />
       <input type="hidden" name="lock" value={locked ? "false" : "true"} />
+      <PleaseWait show={pending} />
       <button className={locked ? "btn btn-secondary" : "btn"} disabled={pending}>
-        {locked ? "פתיחת החודש מחדש" : "נעילת החודש"}
+        {waitLabel(pending, locked ? "פתיחת החודש מחדש" : "נעילת החודש")}
       </button>
     </form>
   );

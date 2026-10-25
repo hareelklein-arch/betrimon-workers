@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { logoutAction } from "@/lib/auth-actions";
+import { LogoutButton } from "@/components/logout-button";
 import { ROLE_LABELS } from "@/lib/format";
 import { PushToggle } from "@/components/push-toggle";
 import { SetupNudge } from "@/components/setup-nudge";
@@ -39,11 +39,7 @@ export function AppShell({
               </span>
             ) : null}
           </Link>
-          <form action={logoutAction}>
-            <button className="btn btn-secondary" type="submit">
-              יציאה
-            </button>
-          </form>
+          <LogoutButton />
         </div>
       </header>
       <SetupNudge />
