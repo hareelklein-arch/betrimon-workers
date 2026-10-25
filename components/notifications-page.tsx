@@ -2,9 +2,10 @@ import { prisma } from "@/lib/db";
 import { markNotificationsReadAction } from "@/lib/actions";
 import { EmptyState, PageTitle } from "@/components/shell";
 import { formatDateTime } from "@/lib/format";
-import { notificationCta } from "@/lib/notifications";
+import { dismissWorkerPendingNotifications, notificationCta } from "@/lib/notifications";
 
 export async function NotificationsView({ userId }: { userId: string }) {
+  await dismissWorkerPendingNotifications();
   const items = await prisma.notification.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },

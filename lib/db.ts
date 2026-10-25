@@ -2,17 +2,23 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+function appendParam(url: string, key: string, value: string) {
+  return url + (url.includes("?") ? "&" : "?") + `${key}=${value}`;
+}
+
 function postgresPoolUrl(url: string) {
   if (!/^postgres(ql)?:\/\//i.test(url)) return url;
   const hashIndex = url.indexOf("#");
   const hash = hashIndex === -1 ? "" : url.slice(hashIndex);
   let base = hashIndex === -1 ? url : url.slice(0, hashIndex);
-  const params: string[] = [];
-  if (!/[?&]pgbouncer=/i.test(base)) params.push("pgbouncer=true");
-  if (!/[?&]connection_limit=/i.test(base)) params.push("connection_limit=1");
-  if (!/[?&]sslmode=/i.test(base)) params.push("sslmode=require");
-  if (params.length === 0) return url;
-  base += (base.includes("?") ? "&" : "?") + params.join("&");
+  if (!/[?&]pgbouncer=/i.test(base)) base = appendParam(base, "pgbouncer", "true");
+  if (!/[?&]sslmode=/i.test(base)) base = appendParam(base, "sslmode", "require");
+  if (!/[?&]pool_timeout=/i.test(base)) base = appendParam(base, "pool_timeout", "20");
+  if (/[?&]connection_limit=1(?:&|$)/i.test(base)) {
+    base = base.replace(/([?&]connection_limit=)1(?=&|$)/i, "$13");
+  } else if (!/[?&]connection_limit=/i.test(base)) {
+    base = appendParam(base, "connection_limit", "3");
+  }
   return base + hash;
 }
 
