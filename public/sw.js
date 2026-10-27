@@ -1,7 +1,7 @@
 self.addEventListener("push", (event) => {
-  let data = { title: "בית רימון", body: "יש עדכון חדש", url: "/" };
+  let data = { title: "בית רימון", body: "יש עדכון חדש", url: "/", tag: "betrimon", urgent: false };
   try {
-    data = event.data ? event.data.json() : data;
+    data = event.data ? { ...data, ...event.data.json() } : data;
   } catch {
     data.body = event.data ? event.data.text() : data.body;
   }
@@ -11,6 +11,11 @@ self.addEventListener("push", (event) => {
       lang: "he",
       dir: "rtl",
       icon: "/icon.svg",
+      badge: "/icon.svg",
+      vibrate: [200, 80, 200, 80, 200],
+      tag: data.tag || "betrimon",
+      renotify: true,
+      requireInteraction: Boolean(data.urgent),
       data: { url: data.url || "/" },
     }),
   );

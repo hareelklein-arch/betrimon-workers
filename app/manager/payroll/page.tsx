@@ -40,7 +40,7 @@ export default async function PayrollPage({
           חודש הבא
         </a>
         <a className="btn" href={`/manager/payroll/export?year=${year}&month=${month}`}>
-          ייצוא ל-Excel
+          ייצוא ל-PDF
         </a>
         <LockPeriodForm year={year} month={month} locked={locked} />
       </div>

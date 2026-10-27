@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BottomNav } from "@/components/bottom-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { ROLE_LABELS } from "@/lib/format";
+import { PushSetup } from "@/components/push-setup";
 import { SetupNudge } from "@/components/setup-nudge";
 
 type NavItem = { href: string; label: string };
@@ -38,6 +39,7 @@ export function AppShell({
           <LogoutButton />
         </div>
       </header>
+      <PushSetup />
       <SetupNudge />
       {banner}
       <main>{children}</main>

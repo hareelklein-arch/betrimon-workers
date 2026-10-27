@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import webpush from "web-push";
-import { afterResponse } from "@/lib/background";
 
 function pushConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -21,6 +20,7 @@ export async function notifyUsers(params: {
   title: string;
   body: string;
   meta?: unknown;
+  urgent?: boolean;
 }) {
   if (params.userIds.length === 0) return;
 
@@ -36,14 +36,14 @@ export async function notifyUsers(params: {
       })),
     });
     const idByUser = new Map(created.map((item) => [item.userId, item.id]));
-    afterResponse(() => sendPushNotifications(params, idByUser));
+    await sendPushNotifications(params, idByUser);
   } catch (error) {
     console.error("notifyUsers", error);
   }
 }
 
 async function sendPushNotifications(
-  params: { userIds: string[]; type: string; title: string; body: string; meta?: unknown },
+  params: { userIds: string[]; type: string; title: string; body: string; meta?: unknown; urgent?: boolean },
   idByUser: Map<string, string>,
 ) {
   if (!pushConfigured()) return;
@@ -63,10 +63,13 @@ async function sendPushNotifications(
           JSON.stringify({
             title: params.title,
             body: params.body,
+            tag: params.type,
+            urgent: Boolean(params.urgent),
             url: notificationId
               ? `/n/${notificationId}`
               : notificationHref({ type: params.type, meta: params.meta ? JSON.stringify(params.meta) : null }, "worker"),
           }),
+          { TTL: 60 * 60 * 24, urgency: "high" },
         );
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
@@ -139,6 +142,9 @@ export function notificationHref(item: { type: string; meta: string | null }, ro
   if (item.type === "worker_pending") {
     return "/manager/people?tab=workers";
   }
+  if (item.type === "shift_reminder") {
+    return meta.shiftId ? `/worker/shifts/${meta.shiftId}` : "/worker";
+  }
   if (meta.shiftId) {
     return `/worker/shifts/${meta.shiftId}`;
   }
@@ -151,5 +157,6 @@ export function notificationCta(type: string) {
   if (type === "shift_cancelled") return "לחצו לשיבוצים";
   if (type === "shift_assigned") return "לחצו לפרטי השיבוץ";
   if (type === "worker_pending") return "לחצו לאישור העובדים";
+  if (type === "shift_reminder") return "לחצו לפרטי השיבוץ";
   return "לחצו לפתיחה";
 }

@@ -80,6 +80,7 @@ export async function assignShiftsForJob(params: {
         await notifyUsers({
           userIds: [shift.userId],
           type: "shift_assigned",
+          urgent: true,
           title: shift.trainee ? "שובצת כמתלמד/ת" : "שובצת למשמרת",
           body: shift.trainee
             ? `${jobName} ב${siteName}. שובצת כמתלמד/ת. אפשר לתאם שעות בצ'אט של התאריך, ואז לדווח.`

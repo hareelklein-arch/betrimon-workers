@@ -16,9 +16,11 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/client": "^6.16.3",
     "iron-session": "^9.0.1",
     "next": "^15.5.28",
+    "pdf-lib": "^1.17.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "web-push": "^3.6.7",

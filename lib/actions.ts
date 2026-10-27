@@ -385,6 +385,7 @@ export async function cancelShiftsAction(formData: FormData) {
           await notifyUsers({
             userIds: [shift.userId],
             type: "shift_cancelled",
+            urgent: true,
             title: "משמרת בוטלה",
             body: `${shift.jobType.name} ב${shift.site.name} בוטלה.`,
             meta: { shiftId: shift.id },

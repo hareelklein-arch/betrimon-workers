@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["xlsx"],
+  serverExternalPackages: ["xlsx", "pdf-lib", "@pdf-lib/fontkit"],
+  outputFileTracingIncludes: {
+    "/manager/payroll/export": ["./lib/fonts/**/*"],
+  },
   experimental: {
     staleTimes: {
       dynamic: 30,
