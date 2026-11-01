@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   createShiftAction,
   deleteNamedItemAction,
@@ -133,6 +134,7 @@ export function ShiftForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [submitSlot, setSubmitSlot] = useState<HTMLElement | null>(null);
 
   const availableWorkers = options.filter((worker) => !worker.assignedToThisJob);
   const selectedWorkers = selected
@@ -182,6 +184,10 @@ export function ShiftForm({
     applyCrew(rankedWorkers);
   }, [rankedWorkers, crewSize]);
 
+  useEffect(() => {
+    setSubmitSlot(document.getElementById("assign-submit-slot"));
+  }, []);
+
   function toggleWorker(id: string) {
     setTrainees((current) => current.filter((item) => item !== id));
     setSelected((current) => {
@@ -200,6 +206,7 @@ export function ShiftForm({
 
   return (
     <form
+      id="assign-shift-form"
       className="grid gap-3"
       action={async (formData) => {
         if (pending) return;
@@ -413,11 +420,23 @@ export function ShiftForm({
           יש רק {selected.length} עובדים פנויים.
         </p>
       ) : null}
-      <WaitSubmit
-        className="btn w-full"
-        label="שיבוץ"
-        disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}
-      />
+      {submitSlot
+        ? createPortal(
+            <WaitSubmit
+              form="assign-shift-form"
+              className="btn px-3"
+              label="שיבוץ"
+              disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}
+            />,
+            submitSlot,
+          )
+        : (
+            <WaitSubmit
+              className="btn w-full"
+              label="שיבוץ"
+              disabled={pending || selected.length < MIN_CREW || selected.length > MAX_CREW}
+            />
+          )}
     </form>
   );
 }

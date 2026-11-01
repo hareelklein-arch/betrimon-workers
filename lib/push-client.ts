@@ -47,7 +47,8 @@ export async function enablePushNotifications() {
     return { ok: false as const, error: "לא אושרה הרשאת התראות." };
   }
 
-  const registration = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.register("/sw.js");
+  const registration = await navigator.serviceWorker.ready;
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!key || !("PushManager" in window)) {
     return { ok: true as const };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   isAppInstalled,
   notificationsAllowed,
@@ -12,6 +13,8 @@ import { PleaseWait, waitLabel } from "@/components/please-wait";
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
 export function SetupNudge() {
+  const pathname = usePathname();
+  const onHome = pathname === "/manager" || pathname === "/worker";
   const [ready, setReady] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [notifyOk, setNotifyOk] = useState(false);
@@ -48,6 +51,7 @@ export function SetupNudge() {
   }, []);
 
   useEffect(() => {
+    if (!onHome) return;
     let cancelled = false;
 
     async function ask() {
@@ -72,9 +76,9 @@ export function SetupNudge() {
       window.clearTimeout(timer);
       window.removeEventListener("pointerdown", onFirstGesture, { capture: true });
     };
-  }, []);
+  }, [onHome]);
 
-  if (!ready || (installed && notifyOk)) return null;
+  if (!onHome || !ready || (installed && notifyOk)) return null;
 
   async function installApp() {
     if (!installEvent) return;

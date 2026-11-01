@@ -63,7 +63,7 @@ async function sendPushNotifications(
           JSON.stringify({
             title: params.title,
             body: params.body,
-            tag: params.type,
+            tag: `${params.type}-${notificationId || sub.userId}`,
             urgent: Boolean(params.urgent),
             url: notificationId
               ? `/n/${notificationId}`

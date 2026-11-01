@@ -244,9 +244,12 @@ export function MonthBoard({
                   {formatDate(openDateObj)}
                 </h3>
               </div>
-              <button type="button" className="btn btn-secondary px-3" onClick={() => setOpenDate(null)}>
-                סגירה
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <div id="assign-submit-slot" />
+                <button type="button" className="btn btn-secondary px-3" onClick={() => setOpenDate(null)}>
+                  סגירה
+                </button>
+              </div>
             </div>
             <div className="grid gap-3 overflow-y-auto p-4">
               {openGroups.length === 0 ? (

@@ -53,41 +53,46 @@ export async function assignShiftsForJob(params: {
     return { assignedWorkers: 0, assignedTrainees: 0, warnings: [...new Set(warnings)] };
   }
 
-  const created = await prisma.shift.createManyAndReturn({
-    data: rows.map((row) => ({
-      userId: row.userId,
-      siteId: params.siteId,
-      jobTypeId: params.jobTypeId,
-      workDate: workDay,
-      startsAt: null,
-      endsAt: null,
-      notes: params.notes ?? null,
-      trainee: row.trainee,
-      createdById: params.managerId,
-    })),
-  });
+  const [created, site, job] = await Promise.all([
+    prisma.shift.createManyAndReturn({
+      data: rows.map((row) => ({
+        userId: row.userId,
+        siteId: params.siteId,
+        jobTypeId: params.jobTypeId,
+        workDate: workDay,
+        startsAt: null,
+        endsAt: null,
+        notes: params.notes ?? null,
+        trainee: row.trainee,
+        createdById: params.managerId,
+      })),
+    }),
+    prisma.site.findUnique({ where: { id: params.siteId }, select: { name: true } }),
+    prisma.jobType.findUnique({ where: { id: params.jobTypeId }, select: { name: true } }),
+  ]);
+  const siteName = site?.name ?? "";
+  const jobName = job?.name ?? "";
+
+  await Promise.all(
+    created.map((shift) =>
+      notifyUsers({
+        userIds: [shift.userId],
+        type: "shift_assigned",
+        urgent: true,
+        title: shift.trainee ? "שובצת כמתלמד/ת" : "שובצת למשמרת",
+        body: shift.trainee
+          ? `${jobName} ב${siteName}. שובצת כמתלמד/ת.`
+          : `${jobName} ב${siteName}. שובצת למשמרת.`,
+        meta: { shiftId: shift.id },
+      }),
+    ),
+  );
 
   afterResponse(async () => {
-    const [site, job] = await Promise.all([
-      prisma.site.findUnique({ where: { id: params.siteId }, select: { name: true } }),
-      prisma.jobType.findUnique({ where: { id: params.jobTypeId }, select: { name: true } }),
-    ]);
-    const siteName = site?.name ?? "";
-    const jobName = job?.name ?? "";
     await Promise.all(
-      created.map(async (shift) => {
-        await writeAudit({ userId: params.managerId, action: "create", entity: "shift", entityId: shift.id, after: shift });
-        await notifyUsers({
-          userIds: [shift.userId],
-          type: "shift_assigned",
-          urgent: true,
-          title: shift.trainee ? "שובצת כמתלמד/ת" : "שובצת למשמרת",
-          body: shift.trainee
-            ? `${jobName} ב${siteName}. שובצת כמתלמד/ת. אפשר לתאם שעות בצ'אט של התאריך, ואז לדווח.`
-            : `${jobName} ב${siteName}. אפשר לתאם שעות בצ'אט של התאריך, ואז לדווח.`,
-          meta: { shiftId: shift.id },
-        });
-      }),
+      created.map((shift) =>
+        writeAudit({ userId: params.managerId, action: "create", entity: "shift", entityId: shift.id, after: shift }),
+      ),
     );
   });
 

@@ -98,12 +98,15 @@ export function WaitHost() {
     function onClick(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      const link = target.closest("a[data-wait]") as HTMLAnchorElement | null;
-      if (!link || link.hasAttribute("data-no-wait") || link.target === "_blank") return;
+      const link = target.closest("a") as HTMLAnchorElement | null;
+      if (!link || link.hasAttribute("data-no-wait") || link.target === "_blank" || link.hasAttribute("download")) return;
       const href = link.getAttribute("href") || "";
-      if (!href.startsWith("/") && !href.startsWith("?")) return;
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      if (href.startsWith("http") && !href.startsWith(window.location.origin)) return;
       try {
         const next = new URL(href, window.location.href);
+        if (next.origin !== window.location.origin) return;
+        if (next.pathname.includes("/export")) return;
         if (next.pathname === window.location.pathname && next.search === window.location.search) return;
       } catch {
         return;
