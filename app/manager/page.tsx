@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { MonthBoard } from "@/components/month-board";
+import { InstallShare } from "@/components/install-share";
 import { PageTitle } from "@/components/shell";
 import { errorText, isNextControlFlow } from "@/lib/errors";
 import { endOfMonth, startOfMonth } from "@/lib/format";
@@ -101,6 +102,9 @@ export default async function ManagerSchedulePage({
         title="לוח שיבוץ חודשי"
         subtitle="אפשר לשבץ יום־יום, או להעלות טבלה והמערכת משבצת לפי השמות. מתלמדים מוסיפים ב־+ או בעמודת מתלמדים."
       />
+      <div className="mb-4">
+        <InstallShare />
+      </div>
       <MonthBoard
         key={`${year}-${month}`}
         year={year}

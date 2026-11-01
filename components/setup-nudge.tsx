@@ -96,8 +96,7 @@ export function SetupNudge() {
     <section className="card mb-5 border-[var(--primary)] bg-[#e7f3ea] p-4">
       <h3 className="text-lg font-extrabold">התקינו את האפליקציה ואשרו התראות</h3>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        בכניסה הראשונה יופיע חלון של הדפדפן לאישור התראות. כדי לקבל שיבוצים ועדכונים בטלפון צריך גם להוסיף למסך הבית. אחרי
-        שעושים את זה פעם אחת, ההודעה לא תופיע בכניסה הבאה.
+        בכניסה הראשונה יופיע חלון של הדפדפן לאישור התראות. כדי לקבל שיבוצים ועדכונים בטלפון צריך גם להתקין למסך הבית.
       </p>
       <ul className="mt-3 grid gap-1 text-sm font-bold">
         <li>{installed ? "נוספה למסך הבית" : "עדיין לא במסך הבית"}</li>
@@ -113,12 +112,20 @@ export function SetupNudge() {
       ) : null}
       {!installed && iosHint ? (
         <p className="mt-3 text-sm text-[var(--muted)]">
-          באייפון: כפתור שיתוף ← «הוספה למסך הבית», ואז פותחים מהאייקון החדש.
+          באייפון עדיף דרך{" "}
+          <a href="/install" className="font-extrabold underline">
+            קישור ההתקנה
+          </a>
+          : שיתוף ← «הוספה למסך הבית», ואז פותחים מהאייקון.
         </p>
       ) : null}
       {!installed && !installEvent && !iosHint ? (
         <p className="mt-3 text-sm text-[var(--muted)]">
-          בדפדפן: תפריט ← «הוספה למסך הבית» / «התקנת אפליקציה», ואז פותחים משם.
+          <a href="/install" className="font-extrabold underline">
+            קישור התקנה
+          </a>
+          {" · "}
+          בדפדפן: תפריט ← «התקנת אפליקציה», ואז פותחים מהאייקון.
         </p>
       ) : null}
       {message ? <p className="mt-3 text-sm font-bold text-[var(--danger)]">{message}</p> : null}

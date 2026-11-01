@@ -224,10 +224,10 @@ export function MonthBoard({
       <ScheduleImportForm sites={sites} jobs={jobs} workers={workers} />
 
       {openDate && openDateObj ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-[80] flex sm:items-center sm:justify-center sm:p-4">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 max-sm:hidden"
             aria-label="סגירת חלון השיבוץ"
             onClick={() => setOpenDate(null)}
           />
@@ -235,9 +235,9 @@ export function MonthBoard({
             role="dialog"
             aria-modal="true"
             aria-labelledby="day-assign-title"
-            className="relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-[var(--line)] bg-[var(--card)] pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl"
+            className="relative z-10 flex h-dvh w-full flex-col overflow-hidden bg-[var(--card)] pb-[env(safe-area-inset-bottom)] sm:h-auto sm:max-h-[92dvh] sm:max-w-lg sm:rounded-3xl sm:border sm:border-[var(--line)] sm:shadow-2xl"
           >
-            <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
               <div>
                 <p className="text-xs text-[var(--muted)]">שיבוץ ליום</p>
                 <h3 id="day-assign-title" className="text-xl font-black">

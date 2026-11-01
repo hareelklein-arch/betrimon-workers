@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DeleteWorkerButton, WorkerForm } from "@/components/manager-forms";
 import { approveWorkerAction, deleteWorkerAction } from "@/lib/actions";
 import { PleaseWait, busy, waitLabel } from "@/components/please-wait";
+import { InstallShare } from "@/components/install-share";
 
 export type WorkerListItem = {
   id: string;
@@ -116,25 +117,13 @@ export function WorkersPanel({
       <button type="button" className="btn" onClick={() => setOpenAdd(true)}>
         הוספת עובד חדש
       </button>
+      <InstallShare />
       <div className="grid gap-2">
         <button type="button" className="btn btn-secondary" onClick={copyJoinLink}>
           העתקת קישור רישום
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => {
-            window.open(
-              `https://wa.me/?text=${encodeURIComponent(`הרשמה לעבודה בבית רימון:\n${joinUrl()}`)}`,
-              "_blank",
-              "noopener,noreferrer",
-            );
-          }}
-        >
-          שליחה בוואטסאפ
-        </button>
         {copied ? <p className="text-sm font-bold text-[var(--ok)]">{copied}</p> : null}
-        <p className="text-sm text-[var(--muted)]">מי שנרשם בקישור יופיע כאן לאישור. בלי אישור הוא לא יכול להיכנס.</p>
+        <p className="text-sm text-[var(--muted)]">קישור הרישום הוא רק למי שעוד אין חשבון. מי שנרשם יופיע כאן לאישור.</p>
       </div>
 
       {openAdd ? (

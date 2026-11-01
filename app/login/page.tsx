@@ -17,6 +17,11 @@ export default async function LoginPage() {
         <h1 className="mb-2 text-3xl font-black">ניהול עובדים ושכר</h1>
         <p className="mb-5 text-[var(--muted)]">נכנסים עם שם משתמש וסיסמה.</p>
         <LoginForm />
+        <p className="mt-4 text-center text-sm">
+          <a href="/install" className="font-bold underline">
+            התקנה למסך הבית
+          </a>
+        </p>
         {demo ? (
           <div className="mt-6 rounded-2xl bg-[#eef4ef] p-4 text-sm">
             <p className="font-bold">חשבונות דמו</p>
